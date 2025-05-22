@@ -32,7 +32,7 @@ Dependency changes:
 * replace SQLiteCpp with simple single header (200LOC) sqlite C++ wrapper
 * replace old yaml-cpp with custom yaml/json library (crashes due to non-atomic ref counting in tangrams/yaml-cpp)
 
-<img alt="Screenshot" src="https://github.com/user-attachments/assets/266a3f36-6231-4f83-b4bb-e379cd54803c" width="810">
+<img alt="Screenshot" src="https://github.com/user-attachments/assets/206324b9-bec1-46ca-a9e6-9f7fc1ec6d00" width="810">
 
 
 Tangram ES

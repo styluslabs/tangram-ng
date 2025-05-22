@@ -101,7 +101,7 @@ ClientDataSource::ClientDataSource(Platform& _platform, const std::string& _name
     m_store = std::make_unique<Storage>();
 
     if (!_url.empty()) {
-        UrlCallback onUrlFinished = [&, this](UrlResponse&& response) {
+        UrlCallback onUrlFinished = [this, _url](UrlResponse&& response) {
             if (response.error) {
                 LOGE("Unable to retrieve data from '%s': %s", _url.c_str(), response.error);
             } else {
