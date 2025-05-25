@@ -390,6 +390,7 @@ void View::updateMatrices() {
 
     // set vertical field-of-view, applying intended FOV to wider dimension
     float fovy = m_aspect > 1 ? getFieldOfView()/m_aspect : getFieldOfView();
+    if (fovy <= 0 || fovy >= PI) { assert(false); fovy = PI/4; }  // invalid FOV causes NaNs
 
     double worldToCameraHeight = worldHeight * 0.5 / tan(fovy * 0.5);
 

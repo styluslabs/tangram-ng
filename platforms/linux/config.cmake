@@ -41,6 +41,7 @@ add_executable(tangram
   platforms/common/urlClient.cpp
   platforms/common/linuxSystemFontHelper.cpp
   platforms/common/glfwApp.cpp
+  platforms/common/user_fns.cpp
   platforms/linux/src/main.cpp
 )
 
@@ -49,7 +50,8 @@ add_subdirectory(platforms/common/imgui)
 target_include_directories(tangram
   PRIVATE
   platforms/common
-  app/include
+  core/deps/glm
+  core/deps/isect2d/include
   ${FONTCONFIG_INCLUDE_DIRS}
 )
 

@@ -59,22 +59,17 @@ if(TANGRAM_DEV_MODE AND TANGRAM_BUILD_BENCHMARKS)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer")
 endif()
 
-#if(TANGRAM_BUILD_APP)
-#  set(TANGRAM_PLATFORM_CONFIG_FILE "app/${TANGRAM_PLATFORM}/config.cmake")
-#else()
-#  set(TANGRAM_PLATFORM_CONFIG_FILE "platforms/${TANGRAM_PLATFORM}/config.cmake")
-#endif()
-#
-#if(EXISTS "${PROJECT_SOURCE_DIR}/${TANGRAM_PLATFORM_CONFIG_FILE}")
-#  message(STATUS "Including platform CMake config file: ${TANGRAM_PLATFORM_CONFIG_FILE}")
-#else()
-#  message(SEND_ERROR "Cannot find CMake config file for platform: ${TANGRAM_PLATFORM}. Looked for: ${TANGRAM_PLATFORM_CONFIG_FILE}")
-#  return()
-#endif()
+set(TANGRAM_PLATFORM_CONFIG_FILE "platforms/${TANGRAM_PLATFORM}/config.cmake")
+if(EXISTS "${PROJECT_SOURCE_DIR}/${TANGRAM_PLATFORM_CONFIG_FILE}")
+  message(STATUS "Including platform CMake config file: ${TANGRAM_PLATFORM_CONFIG_FILE}")
+else()
+  message(SEND_ERROR "Cannot find CMake config file for platform: ${TANGRAM_PLATFORM}. Looked for: ${TANGRAM_PLATFORM_CONFIG_FILE}")
+  return()
+endif()
 # Cache platform target.
 set(TANGRAM_PLATFORM ${TANGRAM_PLATFORM} CACHE INTERNAL "Tangram platform target" FORCE)
 # Include the platform config file.
-#include(${TANGRAM_PLATFORM_CONFIG_FILE})
+include(${TANGRAM_PLATFORM_CONFIG_FILE})
 
 # Choose JavaScript implementation.
 if (TANGRAM_IOS OR TANGRAM_OSX OR TANGRAM_USE_JSCORE_STATIC)

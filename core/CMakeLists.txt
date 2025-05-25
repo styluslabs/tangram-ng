@@ -224,6 +224,7 @@ target_include_directories(tangram-core
   deps/miniz
   deps/geojson-vt-cpp/include
   deps/double-conversion/include
+  deps/lerc/src/LercLib
 )
 
 if (WIN32)
@@ -238,10 +239,12 @@ target_link_libraries(tangram-core
   gaml
   double-conversion
   miniz
+  Lerc
 )
 
 if(TANGRAM_USE_FONTCONTEXT_STB)
   target_compile_definitions(tangram-core PRIVATE FONTCONTEXT_STB=1)
+  target_include_directories(tangram-core PRIVATE ../platforms/common/fontstash)
 else()
   target_link_libraries(tangram-core PRIVATE alfons)
 endif()
