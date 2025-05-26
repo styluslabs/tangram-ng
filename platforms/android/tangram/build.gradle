@@ -4,18 +4,19 @@ group = 'com.mapzen.tangram'
 version = '0.17.2-SNAPSHOT'
 
 android {
-  compileSdkVersion 30
+  compileSdkVersion 34
+  namespace 'com.mapzen.tangram'
 
   // Specific ABI targets can be chosen with the 'abis' property as a comma-separated list of ABIs.
   // From the command line, add '-Ptangram.abis=armeabi-v7a,x86,...' to only build those ABIs.
   // When building from Android Studio, the ABI for the target device is injected and takes precedence.
-  def abi = 'all'
+  def abi = 'arm64-v8a'
   if (!project.hasProperty('android.injected.invoked.from.ide') && project.hasProperty('tangram.abis')) {
     abi = project.getProperty('tangram.abis')
   }
 
   defaultConfig {
-    minSdkVersion 16
+    minSdkVersion 21
     targetSdkVersion 30
     consumerProguardFiles 'tangram-proguard-rules.txt'
     buildConfigField 'String', 'TAG', '"Tangram"'
@@ -59,8 +60,21 @@ android {
 
   externalNativeBuild {
     cmake {
+      version '3.18.1'
       path '../../../CMakeLists.txt'
     }
+  }
+
+  // next time, be sure to install versions listed at developer.android.com/build/releases/gradle-plugin#compatibility
+  ndkVersion '26.3.11579264'
+
+  buildFeatures {
+    buildConfig true
+  }
+
+  lintOptions {
+    abortOnError false
+    disable 'ExpiredTargetSdkVersion'
   }
 
   buildTypes {
@@ -78,8 +92,8 @@ android {
 }
 
 dependencies {
-  api 'com.squareup.okhttp3:okhttp:3.12.0'
+  api 'com.squareup.okhttp3:okhttp:3.12.13'
   implementation 'androidx.annotation:annotation:1.1.0'
 }
 
-apply from: 'publishing.gradle'
+//apply from: 'publishing.gradle'

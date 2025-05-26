@@ -46,17 +46,18 @@ public class MainActivity extends AppCompatActivity implements MapController.Sce
         DoubleTapResponder, LongPressResponder, FeaturePickListener, LabelPickListener, MarkerPickListener,
         MapView.MapReadyCallback {
 
-    private static final String NEXTZEN_API_KEY = BuildConfig.NEXTZEN_API_KEY;
+    //private static final String NEXTZEN_API_KEY = BuildConfig.NEXTZEN_API_KEY;
 
     private static final String TAG = "TangramDemo";
 
     private static final String[] SCENE_PRESETS = {
             "asset:///scene.yaml",
-            "https://www.nextzen.org/carto/bubble-wrap-style/9/bubble-wrap-style.zip",
-            "https://www.nextzen.org/carto/refill-style/11/refill-style.zip",
-            "https://www.nextzen.org/carto/walkabout-style/7/walkabout-style.zip",
-            "https://www.nextzen.org/carto/tron-style/6/tron-style.zip",
-            "https://www.nextzen.org/carto/cinnabar-style/9/cinnabar-style.zip"
+            "asset:///scene3d.yaml"
+            //"https://www.nextzen.org/carto/bubble-wrap-style/9/bubble-wrap-style.zip",
+            //"https://www.nextzen.org/carto/refill-style/11/refill-style.zip",
+            //"https://www.nextzen.org/carto/walkabout-style/7/walkabout-style.zip",
+            //"https://www.nextzen.org/carto/tron-style/6/tron-style.zip",
+            //"https://www.nextzen.org/carto/cinnabar-style/9/cinnabar-style.zip"
     };
 
     private ArrayList<SceneUpdate> sceneUpdates = new ArrayList<>();
@@ -81,15 +82,15 @@ public class MainActivity extends AppCompatActivity implements MapController.Sce
 
         setContentView(R.layout.main);
 
-        if (NEXTZEN_API_KEY.isEmpty() || NEXTZEN_API_KEY.equals("null")) {
-            Log.w(TAG, "No API key found! Nextzen data sources require an API key.\n" +
-                    "Sign up for a free key at https://developers.nextzen.org/ and set it\n" +
-                    "in your local Gradle properties file (~/.gradle/gradle.properties)\n" +
-                    "as 'nextzenApiKey=YOUR-API-KEY-HERE'");
-        }
+        //if (NEXTZEN_API_KEY.isEmpty() || NEXTZEN_API_KEY.equals("null")) {
+        //    Log.w(TAG, "No API key found! Nextzen data sources require an API key.\n" +
+        //            "Sign up for a free key at https://developers.nextzen.org/ and set it\n" +
+        //            "in your local Gradle properties file (~/.gradle/gradle.properties)\n" +
+        //            "as 'nextzenApiKey=YOUR-API-KEY-HERE'");
+        //}
 
         // Create a scene update to apply our API key in the scene.
-        sceneUpdates.add(new SceneUpdate("global.sdk_api_key", NEXTZEN_API_KEY));
+        //sceneUpdates.add(new SceneUpdate("global.sdk_api_key", NEXTZEN_API_KEY));
 
         // Set up a text view to allow selecting preset and custom scene URLs.
         sceneSelector = (PresetSelectionTextView)findViewById(R.id.sceneSelector);

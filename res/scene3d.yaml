@@ -1,0 +1,72 @@
+global:
+    font_sans: "Inter"
+
+fonts:
+  "Inter":
+    - url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf"
+
+sources:
+    elevation:
+        type: Raster
+        url: https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png
+        max_zoom: 15
+
+    satellite:
+        type: Raster
+        url: http://a{s}.ortho.tiles.virtualearth.net/tiles/a{q}.JPG?g=45&mkt=en
+        url_subdomains: [0, 1, 2, 3]
+        max_zoom: 18
+        rasters: [ elevation ]
+
+styles:
+    terrain-3d:
+        base: raster
+        lighting: false
+        # tile_edges == false is the default except for lines
+        draw: { tile_edges: false }
+        shaders:
+            defines:
+                TANGRAM_VERTEX_RASTERS: true
+                TANGRAM_RASTER_PRECISION: 'highp'
+            blocks:
+                position: |
+                    #ifdef TANGRAM_TERRAIN_3D
+                    #ifdef TANGRAM_RASTER_STYLE
+                    // need sufficient offset for proxy levels to prevent terrain poking through level above
+                    proxy *= 48.0;
+                    #endif
+                    vec4 h = sampleRaster(1);
+                    float elev3d = max(0., (h.r*256. + h.g + h.b/256.)*255. - 32768.);  // mapzen terrarium
+                    position.z += elev3d;
+                    v_world_position.z += elev3d;
+                    #endif
+
+#lights:
+#    light1: { type: directional, direction: [0, 0, -1], diffuse: 0.30, ambient: 0.25 }
+#    light2: { type: directional, direction: [1, -1, -1], diffuse: 0.30, ambient: 0.25 }
+
+cameras:
+    perspective-camera:
+        position: [-122.434, 37.777, 10.9]
+        type: perspective
+        fov: 45
+        max_tilt: [[2, 0], [16, 90]]
+
+layers:
+    earth:
+        data: { source: satellite }
+        draw:
+            terrain-3d:
+                color: white
+                order: 0
+
+    map-marker:
+        draw:
+            marker:
+                style: text
+                text_source: "function() { return 'MARKER'; }"
+                font:
+                    family: global.font_sans
+                    size: 12px
+                    fill: black
+                    stroke: { color: white, width: 4 }

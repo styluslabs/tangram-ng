@@ -16,6 +16,9 @@
 #include <atomic>
 #include "gl.h"
 
+#include "util/elevationManager.h"
+#include "util/asyncWorker.h"
+
 #ifndef BUILD_NUM_STRING
 #define BUILD_NUM_STRING ""
 #endif
@@ -49,15 +52,16 @@ std::string sceneFile = "scene.yaml";
 std::string sceneYaml;
 //std::string apiKey;
 
-bool markerUseStylingPath = false;
-std::string markerStylingPath = "layers.touch.point.draw.icons";
+bool markerUseStylingPath = true;
+std::string markerStylingPath = "layers.map-marker.draw.marker";
 std::string markerStylingString = R"RAW(
 style: text
 text_source: "function() { return 'MARKER'; }"
 font:
-    family: Open Sans
+    family: global.font_sans
     size: 12px
-    fill: white
+    fill: black
+    stroke: { color: white, width: 4 }
 )RAW";
 std::string polylineStyle = "{ style: lines, interactive: true, color: red, width: 20px, order: 5000 }";
 
@@ -184,6 +188,7 @@ void create(std::unique_ptr<Platform> p, int w, int h) {
 
     // Create a windowed mode window and its OpenGL context
     glfwWindowHint(GLFW_SAMPLES, 2);
+    glfwWindowHint(GLFW_DEPTH_BITS, 24);
     glfwWindowHint(GLFW_STENCIL_BITS, 8);
     if (!main_window) {
         main_window = glfwCreateWindow(width, height, versionString, NULL, NULL);
@@ -191,6 +196,13 @@ void create(std::unique_ptr<Platform> p, int w, int h) {
     if (!main_window) {
         glfwTerminate();
     }
+
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    GLFWwindow* glfwOffscreen = glfwCreateWindow(100, 100, "Offscreen", NULL, main_window);
+
+    auto offscreenWorker = std::make_unique<AsyncWorker>("Ascend offscreen GL worker");
+    offscreenWorker->enqueue([=](){ glfwMakeContextCurrent(glfwOffscreen); });
+    ElevationManager::offscreenWorker = std::move(offscreenWorker);
 
     // Make the main_window's context current
     glfwMakeContextCurrent(main_window);

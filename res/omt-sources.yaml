@@ -1,0 +1,24 @@
+import:
+    - osm-bright.yaml
+
+global:
+    font_sans: "Inter"
+
+# curl https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..800;1,300..800 (no user agent) to get ttf
+fonts:
+  "Inter":
+    - url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf"
+    - style: italic
+      url: "https://fonts.gstatic.com/s/inter/v18/UcCM3FwrK3iLTcvneQg7Ca725JhhKnNqk4j1ebLhAm8SrXTc2dthjQ.ttf"
+    - weight: 600
+      url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf"
+
+
+sources:
+    openmaptiles:
+        type: MVT
+        max_zoom: 14
+        rasters: global.elevation_sources
+        #cache: openfreemap
+        #url: "https://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf"
+        url: "https://tiles.openfreemap.org/planet/latest/{z}/{x}/{y}.pbf"

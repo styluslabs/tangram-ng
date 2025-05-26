@@ -1,18 +1,22 @@
 apply plugin: 'com.android.application'
 
 android {
-  compileSdkVersion 30
+  compileSdkVersion 34
+  namespace 'com.mapzen.tangram.android'
 
-  def apiKey = project.hasProperty('nextzenApiKey') ? nextzenApiKey : System.getenv('NEXTZEN_API_KEY')
+  //def apiKey = project.hasProperty('nextzenApiKey') ? nextzenApiKey : System.getenv('NEXTZEN_API_KEY')
 
   defaultConfig {
-    minSdkVersion 16
+    applicationId 'com.mapzen.tangram.android'
+    versionCode 2
+    versionName '1.1'
+    minSdkVersion 21
     targetSdkVersion 30
-    buildConfigField 'String', 'NEXTZEN_API_KEY', '"' + apiKey + '"'
+    //buildConfigField 'String', 'NEXTZEN_API_KEY', '"' + apiKey + '"'
   }
 
   sourceSets.main {
-    assets.srcDirs = ['../../../scenes']
+    assets.srcDirs = ['../../../res']
   }
 
   buildTypes {
@@ -21,8 +25,18 @@ android {
       jniDebuggable true
     }
     release {
-      minifyEnabled true
+      signingConfig signingConfigs.debug
+      //minifyEnabled true
     }
+  }
+
+  buildFeatures {
+    buildConfig true
+  }
+
+  lintOptions {
+    abortOnError false
+    disable 'ExpiredTargetSdkVersion'
   }
 
   androidResources {

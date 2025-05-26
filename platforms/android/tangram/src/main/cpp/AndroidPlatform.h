@@ -29,6 +29,9 @@ public:
     AndroidPlatform(JNIEnv* jniEnv, jobject mapController, jobject assetManager);
     void onActivityCreated(JNIEnv* jniEnv, jobject mapController, jobject assetManager);
     void shutdown() override;
+#ifdef TANGRAM_ANDROID_MAIN
+    void requestRender() const override;
+#endif
     void setContinuousRendering(bool isContinuous) override;
     FontSourceHandle systemFont(const std::string& name, const std::string& weight, const std::string& face) const override;
     std::vector<FontSourceHandle> systemFontFallbacksHandle() const override;

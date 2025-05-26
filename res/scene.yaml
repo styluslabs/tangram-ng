@@ -1,0 +1,54 @@
+import:
+    - omt-sources.yaml
+
+global:
+    elevation_sources: [ terrain-normals ]
+    earth_style: normals
+
+sources:
+    terrain-normals:
+        type: Raster
+        url: https://elevation-tiles-prod.s3.amazonaws.com/normal/{z}/{x}/{y}.png
+        max_zoom: 15
+        #cache: normals
+
+styles:
+    normals:
+        base: polygons
+        raster: custom
+        shaders:
+            blocks:
+                normal: |
+                    vec2 uv0 = currentRasterUV(0);
+                    if(uv0.x < 0. || uv0.y < 0. || uv0.x > 1. || uv0.y > 1.) { discard; }
+                    normal = normalize(texture2D(u_rasters[0], uv0).xyz * 2. - 1.);
+
+lights:
+    light1: { type: directional, direction: [0, 0, -1], diffuse: 0.30, ambient: 0.25 }
+    light2: { type: directional, direction: [1, -1, -1], diffuse: 0.30, ambient: 0.25 }
+
+cameras:
+    perspective-camera:
+        position: [-122.434, 37.777, 10.9]
+        type: perspective
+        fov: 45
+        max_tilt: [[2, 0], [16, 90]]
+
+layers:
+    earth:
+        data: { source: terrain-normals }
+        draw:
+            normals:
+                color: white
+                order: 0
+
+    map-marker:
+        draw:
+            marker:
+                style: text
+                text_source: "function() { return 'MARKER'; }"
+                font:
+                    family: global.font_sans
+                    size: 12px
+                    fill: black
+                    stroke: { color: white, width: 4 }

@@ -146,6 +146,16 @@ FontSourceHandle AndroidPlatform::systemFont(const std::string& name, const std:
     return FontSourceHandle([data]() { return data; });
 }
 
+#ifdef TANGRAM_ANDROID_MAIN
+void AndroidPlatform::requestRender() const {
+    //if (!m_shutdown && !m_renderRequested.exchange(true)) {
+        m_jniWorker.enqueue([&](JNIEnv *jniEnv) {
+            jniEnv->CallVoidMethod(m_mapController, requestRenderMethodID);
+        });
+    //}
+}
+#endif
+
 void AndroidPlatform::setContinuousRendering(bool isContinuous) {
     Platform::setContinuousRendering(isContinuous);
 

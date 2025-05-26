@@ -1,3 +1,5 @@
+#include "log.h"
+
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg/nanosvg.h"
 #define NANOSVGRAST_IMPLEMENTATION
@@ -8,6 +10,14 @@
 
 #include "scene/styleContext.h"
 #include "gl/texture.h"
+
+#ifdef TANGRAM_ANDROID_MAIN
+void TANGRAM_WakeEventLoop() {}
+#endif
+
+#ifndef GLM_FORCE_CTOR_INIT
+#error "GLM_FORCE_CTOR_INIT must be defined!"
+#endif
 
 namespace Tangram {
 

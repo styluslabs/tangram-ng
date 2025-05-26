@@ -11,6 +11,7 @@ endif()
 
 add_library(tangram SHARED
   platforms/common/platform_gl.cpp
+  platforms/common/user_fns.cpp
   platforms/android/tangram/src/main/cpp/JniHelpers.cpp
   platforms/android/tangram/src/main/cpp/JniOnLoad.cpp
   platforms/android/tangram/src/main/cpp/AndroidPlatform.cpp
@@ -18,9 +19,18 @@ add_library(tangram SHARED
   platforms/android/tangram/src/main/cpp/NativeMap.cpp
 )
 
+target_include_directories(tangram PRIVATE
+  core/deps/stb
+  core/deps/glm
+  core/deps/isect2d/include
+)
+
+target_compile_definitions(tangram PRIVATE TANGRAM_ANDROID_MAIN=1)
+target_compile_definitions(tangram PRIVATE GLM_FORCE_CTOR_INIT)
+
 if(TANGRAM_MBTILES_DATASOURCE)
   target_sources(tangram PRIVATE platforms/android/tangram/src/main/cpp/sqlite3ndk.cpp)
-  target_include_directories(tangram PRIVATE core/deps/SQLiteCpp/sqlite3) # sqlite3ndk.cpp needs sqlite3.h
+  target_include_directories(tangram PRIVATE core/deps/sqlite3) # sqlite3ndk.cpp needs sqlite3.h
   target_compile_definitions(tangram PRIVATE TANGRAM_MBTILES_DATASOURCE=1)
 endif()
 

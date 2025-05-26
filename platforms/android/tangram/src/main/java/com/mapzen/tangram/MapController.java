@@ -1192,7 +1192,8 @@ public class MapController {
     }
 
     @Keep
-    void startUrlRequest(@NonNull final String url, final long requestHandle) {
+    void startUrlRequest(@NonNull final String url,
+        @NonNull final String headers, @NonNull final String payload, final long requestHandle) {
 
         final HttpHandler.Callback callback = new HttpHandler.Callback() {
             @Override
@@ -1220,7 +1221,7 @@ public class MapController {
             }
         };
 
-        Object request = httpHandler.startRequest(url, callback);
+        Object request = httpHandler.startRequest(url, headers, payload, callback);
         if (request != null) {
             httpRequestHandles.put(requestHandle, request);
         }
