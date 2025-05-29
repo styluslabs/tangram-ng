@@ -18,6 +18,10 @@ sources:
         max_zoom: 18
         rasters: [ elevation ]
 
+scene:
+    terrain_3d: true
+    elevation_source: elevation
+
 styles:
     terrain-3d:
         base: raster
@@ -69,4 +73,15 @@ layers:
                     family: global.font_sans
                     size: 12px
                     fill: black
+                    stroke: { color: white, width: 4 }
+
+    pick-marker:
+        draw:
+            pick-marker:
+                style: text
+                text_source: "function() { return 'MARKER'; }"
+                font:
+                    family: global.font_sans
+                    size: 12px
+                    fill: red
                     stroke: { color: white, width: 4 }

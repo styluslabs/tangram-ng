@@ -1,5 +1,3 @@
-#include "log.h"
-
 #define NANOSVG_IMPLEMENTATION
 #include "nanosvg/nanosvg.h"
 #define NANOSVGRAST_IMPLEMENTATION
@@ -15,6 +13,7 @@
 void TANGRAM_WakeEventLoop() {}
 #endif
 
+//#include "log.h"
 #ifndef GLM_FORCE_CTOR_INIT
 #error "GLM_FORCE_CTOR_INIT must be defined!"
 #endif

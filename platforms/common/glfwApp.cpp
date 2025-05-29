@@ -89,7 +89,6 @@ bool load_async = true;
 bool add_point_marker_on_click = false;
 bool add_polyline_marker_on_click = false;
 bool point_markers_position_clipped = false;
-bool terrain_3d = false;
 
 struct PointMarker {
     MarkerID markerId;
@@ -120,8 +119,6 @@ void loadSceneFile(bool setPosition, std::vector<SceneUpdate> updates) {
         if (!found) { sceneUpdates.push_back(update); }
     }
     SceneOptions options(sceneYaml, Url(sceneFile), setPosition, sceneUpdates);
-    options.terrain3d = terrain_3d;
-    options.elevationSource = "elevation";
     map->loadScene(std::move(options), load_async);
 }
 
@@ -653,7 +650,6 @@ void showSceneGUI() {
         if (ImGui::InputText("Scene URL", &sceneFile, ImGuiInputTextFlags_EnterReturnsTrue)) {
             loadSceneFile();
         }
-        ImGui::Checkbox("3D terrain", &terrain_3d);
         //if (ImGui::InputText("API key", &apiKey, ImGuiInputTextFlags_EnterReturnsTrue)) {
         //    loadSceneFile(false, {SceneUpdate{apiKeyScenePath, apiKey}});
         //}

@@ -1,6 +1,12 @@
 # Tangram NG #
 *Fork of [Tangram ES](https://github.com/tangrams/tangram-es) for [Ascend Maps](https://www.github.com/styluslabs/maps)*
 
+Cross-platform C++ library for rendering 2D and 3D maps, supporting vector (GeoJSON, TopoJSON, Mapbox Vector Tiles) and raster (PNG, JPEG, TIFF, and LERC) data.
+
+Map style is defined by YAML scene files - see Tangram ES documentation at https://tangrams.readthedocs.io
+
+<img alt="Screenshot" src="https://github.com/user-attachments/assets/206324b9-bec1-46ca-a9e6-9f7fc1ec6d00" width="810">
+
 [Diff to upstream: compare/076b273..HEAD](https://github.com/styluslabs/tangram-ng/compare/076b273..HEAD)
 
 Major changes include:
@@ -32,43 +38,17 @@ Dependency changes:
 * replace SQLiteCpp with simple single header (200LOC) sqlite C++ wrapper
 * replace old yaml-cpp with custom yaml/json library (crashes due to non-atomic ref counting in tangrams/yaml-cpp)
 
-<img alt="Screenshot" src="https://github.com/user-attachments/assets/206324b9-bec1-46ca-a9e6-9f7fc1ec6d00" width="810">
+
+## Demo ##
+
+[Ascend Maps](https://www.github.com/styluslabs/maps) uses a cross-plaform GUI framework ([ugui](https://www.github.com/styluslabs/ugui)) instead of native GUI.  For examples of how to integrate tangram-ng with more conventional native apps, see the demos in the [platforms](platforms/) folder (note that the platform-specific documentation has not been updated yet).
+
+To build the demos (requires cmake):
+* Linux: `make linux` to create `build/Release/tangram`
+* Android: `cd platforms/android && ./gradlew installRelease` (update ndkVersion in tangram/build.gradle as needed)
+* iOS, macOS, Windows: demos not yet updated from tangram-es versions, please open a github issue if needed
 
 
-Tangram ES
-==========
+## Contributing ##
 
-[![CircleCI](https://circleci.com/gh/tangrams/tangram-es.svg?style=shield)](https://app.circleci.com/pipelines/github/tangrams/tangram-es)
-[![Windows CI](https://github.com/tangrams/tangram-es/actions/workflows/windows.yml/badge.svg)](https://github.com/tangrams/tangram-es/actions/workflows/windows.yml)
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](CODE_OF_CONDUCT.md)
-
-Tangram ES is a C++ library for rendering 2D and 3D maps from vector data using OpenGL ES. It is a counterpart to [Tangram](https://github.com/tangrams/tangram).
-
-This repository contains both the core rendering library and sample applications that use the library on Android, iOS, macOS, Ubuntu, Windows, and Raspberry Pi.
-
-![screenshot](images/screenshot.png)
-
-## Platform Targets
-
-For more information about building Tangram ES or using it in your project, see the individual platform pages below:
-
-- [Android](platforms/android)
-- [iOS](platforms/ios)
-- [macOS](platforms/osx)
-- [Ubuntu Linux](platforms/linux)
-- [Raspberry Pi](platforms/rpi)
-- [Windows](platforms/windows)
-
-## Support
-
-For concept overviews and technical reference, see the [Tangram Documentation](https://mapzen.com/documentation/tangram).
-
-You can also find us in the tangram-chat gitter chat room: https://gitter.im/tangrams/tangram-chat
-
-## Contributions Welcome
-
-We gladly appreciate feedback, feature requests, and contributions. For information and instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
-
-Tangram ES was created by [Mapzen](https://www.mapzen.com/) and is now a [Linux Foundation Project](https://www.linuxfoundation.org/press-release/2019/01/mapzen-open-source-data-and-software-for-real-time-mapping-applications-to-become-a-linux-foundation-project/).
+Contributions are welcome, but please open an issue or discussion before starting on major changes.

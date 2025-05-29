@@ -14,6 +14,8 @@ fonts:
       url: "https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf"
 
 
+# alternatives:
+# - https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt - see vector.openstreetmap.org/demo/shortbread/
 sources:
     openmaptiles:
         type: MVT

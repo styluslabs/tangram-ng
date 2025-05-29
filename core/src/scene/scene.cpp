@@ -201,7 +201,10 @@ bool Scene::load() {
     m_lightShaderBlocks = Light::assembleLights(m_lights);
     LOGTO("<<< applyLights");
 
-    SceneLoader::applyScene(m_config["scene"], m_background, m_backgroundStops, m_animated);
+    const YAML::Node& sceneNode = m_config["scene"];
+    SceneLoader::applyScene(sceneNode, m_background, m_backgroundStops, m_animated);
+    bool terrain3d = YamlUtil::getBoolOrDefault(sceneNode["terrain_3d"], false);
+    std::string elevSrc = sceneNode["elevation_source"].as<std::string>("");
     LOGTO("<<< applyScene");
 
     m_tileManager->setTileSources(m_tileSources);
@@ -269,19 +272,19 @@ bool Scene::load() {
     LOGTO("<<< sortStyles");
 
     auto terrainSrcIt = std::find_if(m_tileSources.begin(), m_tileSources.end(),
-        [this](auto& src){ return src->isRaster() && src->name() == m_options.elevationSource; });
+        [&](auto& src){ return src->isRaster() && src->name() == elevSrc; });
     auto terrainSrc = terrainSrcIt != m_tileSources.end() ?
          std::static_pointer_cast<RasterSource>(*terrainSrcIt) : nullptr;
     // setup 3D terrain if enabled
-    if (m_options.terrain3d) {
+    if (terrain3d) {
         // choose first raster style
         auto terrainStyle = std::find_if(m_styles.begin(), m_styles.end(),
-              [&](auto& style){ return style->type() == StyleType::raster; });
+              [](auto& style){ return style->type() == StyleType::raster; });
         if (terrainSrc && terrainStyle != m_styles.end()) {
             m_elevationManager = std::make_unique<ElevationManager>(terrainSrc, **terrainStyle);
+        } else {
+            LOGE("Unable to find elevation source or raster style needed for 3D terrain!");
         }
-        else
-          LOGE("Unable to find elevation source or raster style needed for 3D terrain!");
     }
     // need to keep elevation data if 3D terrain or contour labels enabled
     if (m_elevationManager || (terrainSrc && terrainSrc->TileSource::generateGeometry())) {
