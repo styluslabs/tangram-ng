@@ -93,8 +93,9 @@ bool SpriteLabel::updateScreenTransform(const glm::mat4& _mvp, const ViewState& 
     glm::vec3 ndc = clipSpaceToNdc(proj);
     if (ndc.z > 1.0f) { return false; }  // beyond far plane
 
-    glm::vec2 pos = ndcToScreenSpace(ndc, _viewState.viewportSize) + m_options.offset;
+    glm::vec2 pos = ndcToScreenSpace(ndc, _viewState.viewportSize);
     m_screenCenter = glm::vec4(pos, ndc.z, 1/proj.w);
+    pos += m_options.offset;  // do not include offset in screenCenter
 
     if (m_options.flat) {
 

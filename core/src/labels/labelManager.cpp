@@ -95,10 +95,10 @@ void LabelManager::processLabelUpdate(const ViewState& _viewState, const LabelSe
             float zdn = _elevManager->getDepth({screenCoord.x, screenCoord.y+2});
             float zup = _elevManager->getDepth({screenCoord.x, screenCoord.y-2});
 
-            // need some hysteresis to reduce label flashing
+            // need some hysteresis to reduce label flashing; hysteresis on thresh does not work well
             bool wasBehind = label->state() == Label::State::out_of_screen;
             float terrainz = wasBehind ? zdn : zup;
-            float thresh = 200.0f;  //std::max(200.0f, std::abs(zup - z00)) * (wasBehind ? 1 : 2);
+            float thresh = std::max(200.f, 0.002f*zup);  //std::max(200.0f, std::abs(zup - z00)) * (wasBehind ? 1 : 2);
 
             if (terrainz != 0 && screenCoord.w != 0 && labelz > terrainz + thresh) {
                 label->enterState(Label::State::out_of_screen);

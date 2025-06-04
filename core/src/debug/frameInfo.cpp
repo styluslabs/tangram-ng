@@ -169,10 +169,22 @@ void FrameInfo::draw(RenderState& rs, const View& _view, Map& _map) {
         debuginfos.push_back(fstring("tile cache:%d (%dKB) (max:%dKB)", tileCache.getNumEntries(),
             tileCache.getMemoryUsage()/1024, tileCache.cacheSizeLimit()/1024));
         debuginfos.push_back(fstring("tile size:%dKB", memused / 1024));
-#if defined(DEBUG) && defined(TANGRAM_LINUX) // || defined(TANGRAM_ANDROID) -- also supported on Android
+#ifdef DEBUG
+#ifdef TANGRAM_LINUX // || defined(TANGRAM_ANDROID) -- also supported on Android
         struct mallinfo2 mi;
         mi = mallinfo2();
         debuginfos.push_back(fstring("total memory (mallinfo2): %lluKB/%lluKB", mi.uordblks/1024, mi.arena/1024));
+#elif defined(TANGRAM_WINDOWS)
+        _HEAPINFO hinfo;
+        hinfo._pentry = NULL;
+        size_t heapblocks = 0, heaptotal = 0, heapused = 0;
+        while (_heapwalk(&hinfo) == _HEAPOK) {
+            ++heapblocks;
+            heaptotal += hinfo._size;
+            if (hinfo._useflag == _USEDENTRY) { heapused += hinfo._size; }
+        }
+        debuginfos.push_back(fstring("total memory (_heapwalk %llu blocks): %lluKB/%lluKB", heapblocks, heapused/1024, heaptotal/1024));
+#endif
 #endif
         debuginfos.push_back(fstring("pending downloads:%d (%dKB downloaded)",
             _map.getPlatform().activeUrlRequests(), _map.getPlatform().bytesDownloaded/1024));

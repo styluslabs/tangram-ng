@@ -36,17 +36,24 @@ Dependency changes:
 * make glm and stb submodules
 * absorb tangrams/* submodules
 * replace SQLiteCpp with simple single header (200LOC) sqlite C++ wrapper
-* replace old yaml-cpp with custom yaml/json library (crashes due to non-atomic ref counting in tangrams/yaml-cpp)
+* replace old yaml-cpp with custom yaml/json library (to fix crashes)
 
 
 ## Demo ##
 
-[Ascend Maps](https://www.github.com/styluslabs/maps) uses a cross-plaform GUI framework ([ugui](https://www.github.com/styluslabs/ugui)) instead of native GUI.  For examples of how to integrate tangram-ng with more conventional native apps, see the demos in the [platforms](platforms/) folder (note that the platform-specific documentation has not been updated yet).
+[Ascend Maps](https://www.github.com/styluslabs/maps) uses a cross-plaform GUI framework ([ugui](https://www.github.com/styluslabs/ugui)) instead of native GUI.  For examples of how to integrate tangram-ng with more conventional native apps, see the demos in the [platforms](platforms/) folder (note that the platform-specific documentation has not been updated yet).  The scene file [osm-bright.yaml](res/osm-bright.yaml) was converted from Mapbox style JSON using [mb2mz.js](https://github.com/styluslabs/maps/blob/master/scripts/runmb2mz.js).
 
 To build the demos (requires cmake):
 * Linux: `make linux` to create `build/Release/tangram`
 * Android: `cd platforms/android && ./gradlew installRelease` (update ndkVersion in tangram/build.gradle as needed)
 * iOS, macOS, Windows: demos not yet updated from tangram-es versions, please open a github issue if needed
+
+
+## More ##
+
+Contains a couple potentially useful libraries:
+* [gaml](core/deps/gaml/src) - simple (~1000 LOC, 2 files) YAML parser and writer, supporting both block and flow style.  Can preserve comments and order of map keys
+* [sqlitepp](core/deps/sqlite3/sqlitepp.h) - single header (~200 LOC) wrapper for sqlite supporting expressions like `db.stmt("select a,b,c from some_table where d = ? and e = ?;").bind(5, "foo").exec([&](int a, float b, std::string c) { /* called for each result row */ });`
 
 
 ## Contributing ##

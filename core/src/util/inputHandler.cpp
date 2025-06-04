@@ -157,8 +157,27 @@ void InputHandler::handleRotateGesture(float _posX, float _posY, float _radians)
 void InputHandler::handleShoveGesture(float _distance) {
     cancelFling();
 
-    // note that trying to keep point at screen center fixed gives poor results
     float angle = -M_PI * _distance / m_view.getHeight();
+
+    // In 3D mode, adjust zoom and position to pivot about terrain at screen center (for pitch < 75 deg)
+    float maxpitch = std::min(75.f*float(DEG_TO_RAD), m_view.getMaxPitch());
+    float pitch0 = glm::clamp(m_view.getPitch(), 0.f, maxpitch);
+    float pitch1 = glm::clamp(m_view.getPitch() + angle, 0.f, maxpitch);
+
+    float _posX = 0.5f * m_view.getWidth();
+    float _posY = 0.5f * m_view.getHeight();
+    float elev = 0;
+    m_view.screenPositionToLngLat(_posX, _posY, &elev);
+    if (pitch0 != pitch1 && elev > 0) {
+        auto viewPos = m_view.getPosition();
+
+        float dl = elev*(1/std::cos(pitch1) - 1/std::cos(pitch0));
+        m_view.setBaseZoom(m_view.getBaseZoom() - std::log2(1 + dl/viewPos.z));
+
+        float dpos = elev*(std::tan(pitch1) - std::tan(pitch0));
+        m_view.translate(glm::rotate(glm::vec2(0.f, dpos), m_view.getYaw()));
+    }
+
     m_view.pitch(angle);
 }
 
