@@ -14,10 +14,14 @@ NetworkDataSource::NetworkDataSource(DataSourceContext& _context, std::string ur
     m_urlTemplate(std::move(url)),
     m_options(std::move(options)) {
 
-    if(m_urlTemplate.compare(0, 8, "function") == 0) {
+    if (m_urlTemplate.compare(0, 8, "function") == 0) {
         m_urlFunction = m_context.createFunction(m_urlTemplate);
     }
 
+    auto& hdrs = m_options.httpOptions.headers;
+    if (hdrs.find("User-Agent: ") == std::string::npos)  {
+        hdrs.append("User-Agent: " + _context.getPlatform().defaultUserAgent + "\r\n");
+    }
 }
 
 std::string NetworkDataSource::tileCoordinatesToQuadKey(const TileID &tile) {

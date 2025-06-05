@@ -115,6 +115,7 @@ public:
     std::atomic_uint_fast64_t bytesDownloaded = {0};
     std::atomic_bool isOffline{false};
     std::function<void(int64_t, int64_t)> onNotifyStorage;
+    std::string defaultUserAgent = "Tangram";
 
     static char const* shutdown_message;
     static char const* cancel_message;
