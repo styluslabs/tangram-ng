@@ -55,7 +55,7 @@ static float getContourLine(Texture& tex, TileID& tileId, glm::vec2 pos, float e
 
     float level = NAN;
     while (1) {
-        float step, prevElev, lowerElev = NAN, upperElev = NAN;
+        float step, prevElev = 0, lowerElev = NAN, upperElev = NAN;
         glm::vec2 grad, prevPos, lowerPos, upperPos;
         int niter = 0;
         do {

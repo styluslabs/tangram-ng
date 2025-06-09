@@ -42,7 +42,9 @@ extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOESEXT;
 
 #ifdef TANGRAM_LINUX
 #define GL_GLEXT_PROTOTYPES
-#include <GLFW/glfw3.h>
+//#include <GLFW/glfw3.h>
+#include <GL/gl.h>
+#include <GL/glext.h>
 #endif // TANGRAM_LINUX
 
 #ifdef TANGRAM_WINDOWS

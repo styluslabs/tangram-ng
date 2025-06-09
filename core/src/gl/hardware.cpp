@@ -73,14 +73,15 @@ void loadExtensions() {
 void loadCapabilities() {
     GL::getIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
     GL::getIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxCombinedTextureUnits);
-    GL::getIntegerv(GL_DEPTH_BITS, &depthBits);
 
     float ver = 3.0f; // assume GL 3
     const char* verstr = (const char*) GL::getString(GL_VERSION);
-    if (verstr) {
-        sscanf(verstr, "%*[^123456789]%f", &ver);
+    for (const char* s = verstr ? verstr : ""; *s; ++s) {
+        if (*s > '0' && *s < '9') { ver = strtof(s, NULL); break; }
     }
     glVersion = ver*100 + 0.5f;
+
+    if (glVersion < 300) { GL::getIntegerv(GL_DEPTH_BITS, &depthBits); }  // assume 24 bits for GL 3+
 
     LOG("Hardware max texture size %d", maxTextureSize);
     LOG("Hardware max combined texture units %d", maxCombinedTextureUnits);

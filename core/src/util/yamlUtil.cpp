@@ -153,7 +153,7 @@ JSValue toJSValue(JSScope& jsScope, const YAML::Node& node) {
     }
     case YAML::NodeType::Sequence: {
         auto jsArray = jsScope.newArray();
-        for (size_t i = 0; i < node.size(); i++) {
+        for (int i = 0; i < node.size(); i++) {
             jsArray.setValueAtIndex(i, toJSValue(jsScope, node[i]));
         }
         return jsArray;
