@@ -94,7 +94,7 @@ void Platform::shutdown() {
 
 UrlRequestHandle Platform::startUrlRequest(Url _url, UrlCallback&& _callback) {
     HttpOptions opts;
-    if (!defaultUserAgent.empty()) { opts.headers = "User-Agent: " + defaultUserAgent + "\r\n"; }
+    if (!defaultUserAgent.empty()) { opts.headers = "User-Agent: " + defaultUserAgent; }
     return startUrlRequest(_url, opts, std::move(_callback));
 }
 

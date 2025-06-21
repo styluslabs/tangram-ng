@@ -35,7 +35,7 @@ void GLError::error(const char* stmt, const char* fname, int line) {
         auto it = s_GlErrorCodesToStrings.find(err);
 
         if (it != s_GlErrorCodesToStrings.end()) {
-            LOGE("OpenGL error %s, at %s:%i - for %s\n", it->second.c_str(), fname, line, stmt);
+            LOGE("OpenGL error %s, at %s:%i - for %s", it->second.c_str(), fname, line, stmt);
         }
 
         err = GL::getError();

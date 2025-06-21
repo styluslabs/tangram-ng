@@ -7,6 +7,7 @@
 #include "gl/vertexLayout.h"
 #include "gl/renderState.h"
 #include "gl/texture.h"
+#include "gl/hardware.h"
 #include "log.h"
 
 #include "debugPrimitive_vs.h"
@@ -33,6 +34,9 @@ static std::unique_ptr<VertexLayout> s_textureLayout;
 static UniformLocation s_uTextureProj{"u_proj"};
 static UniformLocation s_uTextureScale{"u_scale"};
 
+static GLuint s_VAO = 0;
+static GLuint s_VBO = 0;
+
 void init() {
 
     // lazy init
@@ -51,47 +55,24 @@ void init() {
         s_initialized = true;
         //GL::lineWidth(1.5f);  -- not supported in GL 3 core
     }
+
+    if (Hardware::supportsVAOs && !s_VAO) {
+        GL::genBuffers(1, &s_VBO);
+        GL::genVertexArrays(1, &s_VAO);
+    }
 }
 
 void deinit() {
 
+    if (s_VAO) {
+        GL::deleteBuffers(1, &s_VBO);  s_VBO = 0;
+        GL::deleteVertexArrays(1, &s_VAO);  s_VAO = 0;
+    }
     s_shader.reset(nullptr);
     s_layout.reset(nullptr);
     s_textureShader.reset(nullptr);
     s_textureLayout.reset(nullptr);
     s_initialized = false;
-
-}
-
-void drawLine(RenderState& rs, const glm::vec2& _origin, const glm::vec2& _destination) {
-
-    init();
-
-    glm::vec2 verts[2] = {
-        glm::vec2(_origin.x, _origin.y),
-        glm::vec2(_destination.x, _destination.y)
-    };
-
-    if (!s_shader->use(rs)) { return; }
-
-    GLint boundBuffer;
-    GL::getIntegerv(GL_ARRAY_BUFFER_BINDING, &boundBuffer);
-    rs.vertexBuffer(0);
-    rs.depthTest(GL_FALSE);
-
-    // enable the layout for the line vertices
-    s_layout->enable(rs, *s_shader, 0, &verts);
-
-    GL::drawArrays(GL_LINES, 0, 2);
-
-    rs.vertexBuffer(boundBuffer);
-}
-
-void drawRect(RenderState& rs, const glm::vec2& _origin, const glm::vec2& _destination) {
-    drawLine(rs, _origin, {_destination.x, _origin.y});
-    drawLine(rs, {_destination.x, _origin.y}, _destination);
-    drawLine(rs, _destination, {_origin.x, _destination.y});
-    drawLine(rs, {_origin.x,_destination.y}, _origin);
 }
 
 void drawPoly(RenderState& rs, const glm::vec2* _polygon, size_t _n) {
@@ -99,17 +80,31 @@ void drawPoly(RenderState& rs, const glm::vec2* _polygon, size_t _n) {
 
     if (!s_shader->use(rs)) { return; }
 
-    GLint boundBuffer;
-    GL::getIntegerv(GL_ARRAY_BUFFER_BINDING, &boundBuffer);
-    rs.vertexBuffer(0);
     rs.depthTest(GL_FALSE);
+    rs.vertexBuffer(s_VBO);
+    if (s_VAO) {
+        GL::bindVertexArray(s_VAO);
+        s_layout->enable(0);
+        GL::bufferData(GL_ARRAY_BUFFER, _n*s_layout->getStride(), _polygon, GL_STREAM_DRAW);
+    } else {
+        s_layout->enable(rs, *s_shader, 0, (void*)_polygon);
+    }
 
-    // enable the layout for the _polygon vertices
-    s_layout->enable(rs, *s_shader, 0, (void*)_polygon);
+    GL::drawArrays(_n > 2 ? GL_LINE_LOOP : GL_LINES, 0, _n);
 
-    GL::drawArrays(GL_LINE_LOOP, 0, _n);
+    if (s_VAO) { GL::bindVertexArray(0); }
+    rs.vertexBuffer(0);
+}
 
-    rs.vertexBuffer(boundBuffer);
+void drawLine(RenderState& rs, const glm::vec2& _origin, const glm::vec2& _destination) {
+    glm::vec2 verts[2] = { _origin, _destination };
+    drawPoly(rs, verts, 2);
+}
+
+void drawRect(RenderState& rs, const glm::vec2& _origin, const glm::vec2& _destination) {
+    glm::vec2 verts[4] =
+        { _origin, {_destination.x, _origin.y}, _destination, {_origin.x, _destination.y} };
+    drawPoly(rs, verts, 4);
 }
 
 void drawTexture(RenderState& rs, Texture& _tex, glm::vec2 _pos, glm::vec2 _dim, float _scale) {
@@ -118,11 +113,6 @@ void drawTexture(RenderState& rs, Texture& _tex, glm::vec2 _pos, glm::vec2 _dim,
     if (!s_textureShader->use(rs)) { return; }
 
     s_textureShader->setUniformf(rs, s_uTextureScale, _scale);
-
-    GLint boundBuffer;
-    GL::getIntegerv(GL_ARRAY_BUFFER_BINDING, &boundBuffer);
-    rs.vertexBuffer(0);
-    rs.depthTest(GL_FALSE);
 
     float w = _tex.width();
     float h = _tex.height();
@@ -143,12 +133,20 @@ void drawTexture(RenderState& rs, Texture& _tex, glm::vec2 _pos, glm::vec2 _dim,
 
     _tex.bind(rs, 0);
 
-    // enable the layout for the _polygon vertices
-    s_textureLayout->enable(rs, *s_textureShader, 0, (void*)vertices);
+    rs.depthTest(GL_FALSE);
+    rs.vertexBuffer(s_VBO);
+    if (s_VAO) {
+        GL::bindVertexArray(s_VAO);
+        s_textureLayout->enable(0);
+        GL::bufferData(GL_ARRAY_BUFFER, 6*s_textureLayout->getStride(), vertices, GL_STREAM_DRAW);
+    } else {
+        s_textureLayout->enable(rs, *s_textureShader, 0, (void*)vertices);
+    }
 
     GL::drawArrays(GL_TRIANGLES, 0, 6);
 
-    rs.vertexBuffer(boundBuffer);
+    if (s_VAO) { GL::bindVertexArray(0); }
+    rs.vertexBuffer(0);
 }
 
 void setColor(RenderState& rs, unsigned int _color) {
