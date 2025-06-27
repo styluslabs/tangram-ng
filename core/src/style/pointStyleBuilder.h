@@ -6,6 +6,7 @@
 #include <map>
 #include <memory>
 #include <vector>
+#include <random>
 
 namespace Tangram {
 
@@ -109,6 +110,7 @@ private:
     // Non-owning reference to a texture to use for the current feature.
     Texture* m_texture = nullptr;
 
+    std::mt19937 m_randGen;
 };
 
 }

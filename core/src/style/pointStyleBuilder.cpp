@@ -39,13 +39,11 @@ void PointStyleBuilder::addLayoutItems(LabelCollider& _layout) {
 }
 
 std::unique_ptr<StyledMesh> PointStyleBuilder::build() {
+
     if (m_quads.empty()) { return nullptr; }
 
-
     if (Tangram::getDebugFlag(DebugFlags::draw_all_labels)) {
-
         m_iconMesh->setLabels(m_labels);
-
     } else {
         size_t sumLabels = 0;
 
@@ -81,16 +79,18 @@ std::unique_ptr<StyledMesh> PointStyleBuilder::build() {
 }
 
 void PointStyleBuilder::setup(const Tile& _tile) {
-    m_zoom = _tile.getID().z;
-    m_styleZoom = _tile.getID().s;
+    TileID id = _tile.getID();
+    m_zoom = id.z;
+    m_styleZoom = id.s;
 
     // < 1.0 when overzooming a tile
-    m_tileScale = pow(2, _tile.getID().s - _tile.getID().z);
+    m_tileScale = pow(2, id.s - id.z);
 
     m_spriteLabels = std::make_unique<SpriteLabels>(m_style);
 
     m_textStyleBuilder->setup(_tile);
     m_iconMesh = std::make_unique<IconMesh>();
+    m_randGen.seed(uint64_t(id.z) << 48 | uint64_t(id.x) << 24 | uint64_t(id.y));
 }
 
 void PointStyleBuilder::setup(const Marker& _marker, int zoom) {
@@ -102,6 +102,7 @@ void PointStyleBuilder::setup(const Marker& _marker, int zoom) {
     m_iconMesh = std::make_unique<IconMesh>();
 
     m_texture = _marker.texture();
+    m_randGen.seed(_marker.id()*zoom);
 }
 
 bool PointStyleBuilder::checkRule(const DrawRule& _rule) const {
@@ -459,17 +460,21 @@ void PointStyleBuilder::labelPointsPlacing(const Line& _line, const glm::vec4& _
             }
             break;
         case LabelProperty::Placement::spaced: {
+            std::uniform_real_distribution<float> randf(0.0, 1.0);
             LineSampler<std::vector<glm::vec3>> sampler;
 
             sampler.set(_line);
 
             float lineLength = sampler.sumLength();
-            if (lineLength <= minLineLength) { break; }
-
             float spacing = params.placementSpacing * m_style.pixelScale() /
                 (MapProjection::tileSize() * m_tileScale);
 
-            int numLabels = std::max(std::floor(lineLength / spacing), 1.0f);
+            // for min_length == 0 and line shorter than spacing, place a label w/ probability ~ line length
+            float lenratio = lineLength / spacing;
+            if (minLineLength == 0 && lenratio < 1 && randf(m_randGen) > lenratio) { break; }
+            else if (lineLength <= minLineLength) { break; }
+
+            int numLabels = std::max(std::floor(lenratio), 1.0f);
             float remainderLength = lineLength - (numLabels - 1) * spacing;
             float distance = 0.5f * remainderLength;
             glm::vec2 p, r;
