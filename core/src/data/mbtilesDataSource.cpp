@@ -514,7 +514,7 @@ bool MBTilesDataSource::storeTileData(const TileID& _tileId, const std::vector<c
 
         if (!m_db->exec("COMMIT;")) { break; }
         m_platform.notifyStorage(size, 0);
-        LOGD("%s - store tile: %s", m_name.c_str(), _tileId.toString().c_str());
+        LOGD("%s - store tile: %s (%d bytes)", m_name.c_str(), _tileId.toString().c_str(), int(size));
         return true;
     } while (0);
 

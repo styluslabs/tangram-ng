@@ -19,7 +19,7 @@ NetworkDataSource::NetworkDataSource(DataSourceContext& _context, std::string ur
     }
 
     auto& hdrs = m_options.httpOptions.headers;
-    if (hdrs.find("User-Agent: ") == std::string::npos) {
+    if (hdrs.find("User-Agent:") == std::string::npos) {
         if (!hdrs.empty()) { hdrs.append("\r\n"); }
         hdrs.append("User-Agent: " + _context.getPlatform().defaultUserAgent);
     }
