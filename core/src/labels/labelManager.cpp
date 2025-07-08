@@ -298,6 +298,17 @@ bool LabelManager::priorityComparator(const LabelEntry& _a, const LabelEntry& _b
     auto l1 = _a.label;
     auto l2 = _b.label;
 
+    // give priority to labels closer to camera
+    float z1 = l1->screenCoord().z, z2 = l2->screenCoord().z;
+    if (z1 != z2) {
+        return z1 < z2;
+    }
+
+    // we already know int parts are equal
+    if (_a.priority != _b.priority) {
+        return _a.priority < _b.priority;
+    }
+
     if (l1->isChild() != l2->isChild()) {
         return l2->isChild();  // non-child over child
     }
@@ -311,17 +322,6 @@ bool LabelManager::priorityComparator(const LabelEntry& _a, const LabelEntry& _b
     // Important for repeat groups!
     if (l1->visibleState() != l2->visibleState()) {
         return l1->visibleState();
-    }
-
-    // give priority to labels closer to camera
-    float z1 = l1->screenCoord().z, z2 = l2->screenCoord().z;
-    if (z1 != z2) {
-        return z1 < z2;
-    }
-
-    // we already know int parts are equal
-    if (_a.priority != _b.priority) {
-        return _a.priority < _b.priority;
     }
 
     if (l1->options().repeatGroup != l2->options().repeatGroup) {
