@@ -119,11 +119,12 @@ void LabelCollider::process(TileID _tileID, float _tileInverseScale, float _tile
     // try to avoid too many collisions error from isect2d - large number of labels typically means many in
     //  each repeat group, as the number of unique features per tile is limited
     if (m_labels.size() > 4096) {
-        LOGD("Prefiltering %llu labels for tile %s", m_labels.size(), _tileID.toString().c_str());
+        size_t nlabels = m_labels.size();
         filterRepeatGroups(0, m_labels.size()-1, _tileSize * tileScale);
         killOccludedLabels();
         auto isDead = [](const LabelEntry& l){ return l.label->isOccluded(); };
         m_labels.erase(std::remove_if(m_labels.begin(), m_labels.end(), isDead), m_labels.end());
+        LOGD("Prefiltered %llu labels to %llu for tile %s", nlabels, m_labels.size(), _tileID.toString().c_str());
     }
 
     // Project tile to NDC (-1 to 1, y-up)
@@ -177,8 +178,8 @@ void LabelCollider::process(TileID _tileID, float _tileInverseScale, float _tile
     m_isect2d.resize(split, screenSize);
 
     m_isect2d.intersect(m_aabbs);
-    if (m_isect2d.aborted) {
-        LOGE("Too many label collisions for tile %s", _tileID.toString().c_str());
+    if (m_isect2d.aborted > 0) {
+        LOGE("Too many label collisions (x%d) for tile %s", m_isect2d.aborted, _tileID.toString().c_str());
     }
 
     // Set the first item to be the one with higher priority

@@ -47,7 +47,7 @@ struct ISect2D {
     i32 res_y = 0;
     i32 xpad = 0;
     i32 ypad = 0;
-    bool aborted = false;
+    i32 aborted = 0;
 
     std::vector<std::vector<int32_t>> gridAABBs;
     std::vector<Pair> pairs;
@@ -77,7 +77,7 @@ struct ISect2D {
     }
 
     void clear() {
-        aborted = false;
+        aborted = 0;
         pairs.clear();
         pairMap.assign(pairMap.size(), -1);
 
@@ -184,7 +184,7 @@ struct ISect2D {
 
       for (auto& v : gridAABBs) {
           if (v.empty()) { continue; }
-          if (v.size() > 512) { aborted = true; v.clear(); continue; }
+          if (v.size() > 512) { ++aborted; v.clear(); continue; }
           // check all items against each other
           for (size_t j = 0; j < v.size()-1; ++j) {
               const auto& a(_aabbs[v[j]]);

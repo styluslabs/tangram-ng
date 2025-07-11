@@ -11,7 +11,7 @@ class GlyphTexture : public Texture {
         return options;
     }
 public:
-    static constexpr int size = 256;
+    static constexpr int size = 512;
 
     GlyphTexture();
 

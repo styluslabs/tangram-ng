@@ -14,24 +14,12 @@
 
 namespace Tangram {
 
-// Building:
-//  make linux BUILD_TYPE=Release CMAKE_BUILD_OPTIONS=--verbose CMAKE_OPTIONS="-DTANGRAM_USE_FONTCONTEXT_STB=1"
 // Getting rid of harfbuzz-icu-freetype saves about 3 MB in Release build (8.4 -> 5.6 MB)
 // - dropping sqlite (mbtiles) gets us to 4.2 MB
 // Tangram-ES previously did use fontstash, see 1d5983905871d0ed393f4d2e33104d76edcbf922
 
-// options for texture management (after getting working in single 256x256 texture)
-// - add multi-texture support to fontstash
-// - get rid of 256x256 hardcoding
-// - single 256x(Nx256) texture for fontstash, presented as multiple 256x256 textures ... this for now
-
-// how would we support multiple glyph sizes?
-// - separate FONScontext for each size (since cached glyphs can't be shared), sharing font data
-// - support multiple textures, and allow glyph size to be set per call
-// - split larger glyphs into multiple tiles
-
-// - fontContext uses 3 discrete sizes and picks one closest to requested size; fontScale is set to ratio
-//  between requested and actual size
+// - orig fontContext uses 3 discrete sizes and picks one closest to requested size; fontScale is set to
+//  ratio between requested and actual size
 //const std::vector<float> FontContext::s_fontRasterSizes = { 16, 28, 40 };
 
 // move to cmake file
@@ -154,9 +142,8 @@ int FontContext::addTexture() {
     }
     //flushTextTexture();  -- not necessary since we are just expanding texture
 
-    // 256x256 size for GlyphTexture is hardcoded in several places
     int iw = GlyphTexture::size, ih = GlyphTexture::size;
-    m_textures.push_back(std::make_unique<GlyphTexture>());  //ih, iw));
+    m_textures.push_back(std::make_unique<GlyphTexture>());
     fonsGetAtlasSize(m_fons, &iw, &ih, NULL);
     fonsExpandAtlas(m_fons, iw, ih + GlyphTexture::size);
     return m_textures.size() - 1;
