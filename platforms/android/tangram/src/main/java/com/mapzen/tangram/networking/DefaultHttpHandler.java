@@ -102,7 +102,7 @@ public class DefaultHttpHandler implements HttpHandler {
         final Request.Builder builder = new Request.Builder().url(httpUrl);
         // Some tile endpoints treat requests as "unauthorized" if they have no User-Agent header,
         // so add a default value to every request. Users can override this in configureRequest().
-        builder.addHeader("User-Agent", "tangram");
+        //builder.addHeader("User-Agent", "tangram");
         configureRequest(httpUrl, builder);
         for(String l : headers.split("\r\n")) {
             String[] kv = l.split(":", 2);

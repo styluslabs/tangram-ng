@@ -35,7 +35,7 @@ FontContext::FontContext(Platform& _platform) : m_sdfRadius(SDF_WIDTH), m_platfo
     params.sdfPadding = SDF_WIDTH * 2;  // assumes pixel scale = 2
     params.sdfPixelDist = 128.0f/SDF_WIDTH/2;  // assumes pixel scale = 2
     params.atlasBlockHeight = GlyphTexture::size;
-    params.notDefCodePt = 0xFE56;  // small '?' - default notdef glphy is too prominent
+    params.notDefCodePt = 0xFE56;  // small '?' - default notdef glyph is too prominent
 #ifdef TANGRAM_USER_FONTSTASH
     m_fons = userCreateFontstash(&params, atlasFontPx);
 #else
