@@ -200,12 +200,12 @@ View& Map::getView() {
     return impl->view;
 }
 
-void Map::updateGlobals(const std::vector<SceneUpdate>& _sceneUpdates)
+void Map::updateGlobals(const std::vector<SceneUpdate>& _sceneUpdates, bool _rebuildTiles)
 {
   auto& config = const_cast<YAML::Node&>(impl->scene->config());
   SceneLoader::applyUpdates(config, _sceneUpdates);
   impl->scene->globalsGeneration++;
-  impl->scene->tileManager()->clearTileSets();
+  if (_rebuildTiles) { impl->scene->tileManager()->clearTileSets(); }
   impl->platform.requestRender();
 }
 

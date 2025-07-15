@@ -210,7 +210,7 @@ public:
     View& getView();
 
     // update global variables (only affects JS functions currently)
-    void updateGlobals(const std::vector<SceneUpdate>& _sceneUpdates);
+    void updateGlobals(const std::vector<SceneUpdate>& _sceneUpdates, bool _rebuildTiles = true);
 
     // Set listener for scene load events. The callback receives the SceneID
     // of the loaded scene and SceneError in case loading was not successful.

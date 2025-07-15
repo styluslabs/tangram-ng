@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <cassert>
 
 namespace Tangram {
 
@@ -29,9 +30,17 @@ struct UrlResponse {
 using UrlCallback = std::function<void(UrlResponse&&)>;
 
 struct HttpOptions {
-  HttpOptions(const char* hdrs = "", const char* post = "") : headers(hdrs), payload(post) {}
-  std::string headers;  // put all headers in single string separated by newlines for now
-  std::string payload;  // implies POST if not empty
+    HttpOptions(const char* hdrs = "", const char* post = "") : headers(hdrs), payload(post) {}
+    std::string headers;  // put all headers in single string separated by newlines for now
+    std::string payload;  // implies POST if not empty
+
+    void addHeader(const std::string& hdr, const std::string& val) {
+        assert(hdr.size() && hdr.back() != ':' && hdr.back() != ' ' && val.size());
+        if (headers.find(hdr + ":") != std::string::npos) { return; }
+        //headers.reserve(hdr.size() + val.size() + 4);
+        if (!headers.empty()) { headers.append("\r\n"); }
+        headers.append(hdr).append(": ").append(val);
+    }
 };
 
 struct UrlOptions {
