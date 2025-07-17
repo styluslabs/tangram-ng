@@ -304,13 +304,10 @@ bool LabelManager::priorityComparator(const LabelEntry& _a, const LabelEntry& _b
         return z1 < z2;
     }
 
-    // we already know int parts are equal
-    if (_a.priority != _b.priority) {
-        return _a.priority < _b.priority;
-    }
-
-    if (l1->isChild() != l2->isChild()) {
-        return l2->isChild();  // non-child over child
+    // for tile labels, we want fractional priority over history
+    if (_a.tile) {
+      if (_a.priority != _b.priority) { return _a.priority < _b.priority; }  // already know int parts equal
+      if (l1->isChild() != l2->isChild()) { return l2->isChild(); }  // non-child over child
     }
 
     // Note: This causes non-deterministic placement, i.e. depending on
@@ -322,6 +319,13 @@ bool LabelManager::priorityComparator(const LabelEntry& _a, const LabelEntry& _b
     // Important for repeat groups!
     if (l1->visibleState() != l2->visibleState()) {
         return l1->visibleState();
+    }
+
+    // marker labels can be very dense since they are not prefiltered by LabelCollider, so to avoid flashing
+    //  we want history over fractional priority
+    if (!_a.tile) {
+        if (_a.priority != _b.priority) { return _a.priority < _b.priority; }  // already know int parts equal
+        if (l1->isChild() != l2->isChild()) { return l2->isChild(); }  // non-child over child
     }
 
     if (l1->options().repeatGroup != l2->options().repeatGroup) {

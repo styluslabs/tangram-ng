@@ -85,28 +85,31 @@ void LabelCollider::killOccludedLabels()
     }
 }
 
+static bool priorityComparator(const Label* l1, const Label* l2, bool dflt = false) {
+
+    if (l1->options().priority != l2->options().priority) {
+        return l1->options().priority < l2->options().priority;  // lower numeric priority over higher
+    }
+    if (l1->isChild() != l2->isChild()) {
+        return l2->isChild();  // non-child over child
+    }
+    if (l1->options().repeatGroup != l2->options().repeatGroup) {
+        return l1->options().repeatGroup < l2->options().repeatGroup;
+    }
+    if (l1->type() == l2->type()) {
+        return l1->candidatePriority() < l2->candidatePriority();
+    }
+    if (l1->hash() != l2->hash()) {
+        return l1->hash() < l2->hash();
+    }
+    return dflt;
+}
+
 void LabelCollider::process(TileID _tileID, float _tileInverseScale, float _tileSize) {
 
     // Sort labels so that all labels of one repeat group are next to each other
     std::sort(m_labels.begin(), m_labels.end(),
-              [](auto& e1, auto& e2) {
-                  auto* l1 = e1.label;
-                  auto* l2 = e2.label;
-
-                  if (l1->options().priority != l2->options().priority) {
-                      // lower numeric priority means higher priority
-                      return l1->options().priority < l2->options().priority;
-                  }
-                  if (l1->options().repeatGroup != l2->options().repeatGroup) {
-                      return l1->options().repeatGroup < l2->options().repeatGroup;
-                  }
-
-                  if (l1->type() == l2->type()) {
-                      return l1->candidatePriority() < l2->candidatePriority();
-                  }
-
-                  return l1->hash() < l2->hash();
-              });
+              [](auto& e1, auto& e2) { return priorityComparator(e1.label, e2.label); });
 
     // Set view parameters so that the tile is rendererd at
     // style-zoom-level + 2. (scaled up by factor 4). This
@@ -201,36 +204,10 @@ void LabelCollider::process(TileID _tileID, float _tileInverseScale, float _tile
     }
 
     // Sort by priority on the first item
-    std::sort(m_isect2d.pairs.begin(), m_isect2d.pairs.end(),
-              [&](auto& a, auto& b) {
-
-                  if (a.first == b.first) { return a.second < b.second; }
-
-                  auto* l1 = m_labels[a.first].label;
-                  auto* l2 = m_labels[b.first].label;
-
-                  if (l1->options().priority != l2->options().priority) {
-                      // lower numeric priority means higher priority
-                      return l1->options().priority < l2->options().priority;
-                  }
-
-                  // Required ordering for 'filterRepeatGroups()'
-                  if (l1->options().repeatGroup != l2->options().repeatGroup) {
-                      return l1->options().repeatGroup < l2->options().repeatGroup;
-                  }
-
-                  if (l1->type() == l2->type() &&
-                      l1->candidatePriority() != l2->candidatePriority()) {
-                      return l1->candidatePriority() < l2->candidatePriority();
-                  }
-
-                  if (l1->hash() != l2->hash()) {
-                      return (l1->hash() < l2->hash());
-                  }
-
-                  // just so it is consistent between two instances
-                  return a.first < b.first;
-              });
+    std::sort(m_isect2d.pairs.begin(), m_isect2d.pairs.end(), [&](auto& a, auto& b) {
+        if (a.first == b.first) { return a.second < b.second; }
+        return priorityComparator(m_labels[a.first].label, m_labels[b.first].label, a.first < b.first);
+    });
 
     // The collision pairs are sorted in a way that:
     // - The first item may occlude the second it (but not the other way round!)
@@ -293,28 +270,10 @@ void LabelCollider::process(TileID _tileID, float _tileInverseScale, float _tile
         }
         if (!intersection) { continue; }
 
-        if (l1->options().priority != l2->options().priority) {
-            // lower numeric priority means higher priority
-            if(l1->options().priority > l2->options().priority) {
-                l1->occlude();
-            } else {
-                l2->occlude();
-            }
+        if (priorityComparator(l1, l2)) {
+            l2->occlude();
         } else {
-            if (l1->type() == l2->type()) {
-                if (l1->candidatePriority() > l2->candidatePriority()) {
-                    l1->occlude();
-                } else {
-                    l2->occlude();
-                }
-            }
-
-            // just so it is consistent between two instances
-            if (l1->hash() < l2->hash()) {
-                l1->occlude();
-            } else {
-                l2->occlude();
-            }
+            l1->occlude();
         }
     }
 
