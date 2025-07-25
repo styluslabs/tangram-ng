@@ -29,8 +29,6 @@ static clock_t s_startFrameTime = 0,
     s_startUpdateTime = 0,
     s_endUpdateTime = 0;
 
-static uint64_t s_frameCount = 0;
-
 void FrameInfo::beginUpdate() {
 
     if (getDebugFlag(DebugFlags::tangram_infos) || getDebugFlag(DebugFlags::tangram_stats)) {
@@ -88,7 +86,6 @@ void FrameInfo::end(const std::string& tag) {
 }
 
 void FrameInfo::draw(RenderState& rs, const View& _view, Map& _map) {
-    ++s_frameCount;
 
     if (!getDebugFlag(DebugFlags::tangram_infos) && !getDebugFlag(DebugFlags::tangram_stats)) { return; }
 
@@ -193,7 +190,7 @@ void FrameInfo::draw(RenderState& rs, const View& _view, Map& _map) {
             end("_Frame");
             std::string reasons;
             if (_map.getScene()->labelManager()->needUpdate()) { reasons.append("l,"); }
-            debuginfos.push_back(fstring("=== Frame %llu (%s) ===", s_frameCount, reasons.c_str()));
+            debuginfos.push_back(fstring("=== Frame %llu (%s) ===", Scene::frameCount%10000, reasons.c_str()));
             for (auto& entry : profInfos) {
                 debuginfos.push_back(fstring("%s: %.3fms (CPU: %.3fms)",
                     entry.first.c_str(), entry.second.avgReal, entry.second.avgCpu));

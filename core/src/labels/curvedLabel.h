@@ -53,8 +53,8 @@ public:
         return m_prio;
     }
 
-    glm::vec2 modelCenter() const override {
-        return glm::vec2(m_modelTransform[m_anchorPoint]);
+    glm::vec3 modelCenter() const override {
+        return m_modelTransform[m_anchorPoint];
     }
 
 protected:

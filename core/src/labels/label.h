@@ -85,7 +85,7 @@ public:
 
     virtual uint32_t selectionColor() = 0;
 
-    virtual glm::vec2 modelCenter() const = 0;
+    virtual glm::vec3 modelCenter() const = 0;
 
     // Returns the candidate priority for a feature with multiple labels
     virtual float candidatePriority() const { return 0; }

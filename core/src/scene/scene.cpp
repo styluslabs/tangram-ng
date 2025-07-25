@@ -36,7 +36,7 @@
 namespace Tangram {
 
 static std::atomic<int32_t> s_serial;
-
+int64_t Scene::frameCount = 0;
 
 Scene::Scene(Platform& _platform,
              SceneOptions&& _options,
@@ -670,13 +670,14 @@ Scene::UpdateState Scene::update(RenderState& _rs, View& _view, float _dt) {
         m_elevationManager->renderTerrainDepth(_rs, _view, tiles);
     }
 
-    m_labelManager->updateLabelSet(_view.state(), _dt, *this, tiles, markers, !changed);
+    m_labelManager->updateLabelSet(_view, _dt, *this, tiles, markers, !changed);
 
     return { m_tileManager->numLoadingTiles() > 0, m_labelManager->needUpdate(), markersState.easing };
 }
 
 void Scene::renderBeginFrame(RenderState& _rs) {
     _rs.setFrameTime(m_time);
+    ++frameCount;
 
     for (const auto& style : m_styles) {
         style->onBeginFrame(_rs);

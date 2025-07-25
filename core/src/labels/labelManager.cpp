@@ -53,11 +53,27 @@ void LabelManager::processLabelUpdate(const ViewState& _viewState, const LabelSe
     bool drawAllLabels = Tangram::getDebugFlag(DebugFlags::draw_all_labels);
 
     // use blendOrder == INT_MAX to indicate debug style
+    glm::mat4 elevMVP;
+    bool recalcPos = false, behindCam = false;
     bool useElev = _elevManager && _style->blendOrder() < INT_MAX;
-    if (useElev && _tile) {
-        _elevManager->setMinZoom(!_tile->rasters().empty() ? _tile->rasters().back().tileID.z : 0);
-    }
     bool setElev = useElev && (_marker || _elevManager->hasTile(_tile->getID()));
+    if (useElev) {
+        if (_tile) {
+            _elevManager->setMinZoom(!_tile->rasters().empty() ? _tile->rasters().back().tileID.z : 0);
+        }
+        // if depth data is older than last frame, we have to recalculate label positions
+        auto& depthData = _elevManager->getDepthData();
+        if (depthData.viewPos != m_lastViewPos || depthData.viewProj != m_lastViewProj) {
+            glm::mat4 modelMat = _tile ? _tile->getModelMatrix() : _marker->modelMatrix();
+            glm::dvec2 origin = _tile ? _tile->getOrigin() : _marker->origin();
+            double offset = _tile ? _tile->getScale()/2 : 0;
+            auto relorigin = MapProjection::wrapProjectedMeters((origin + offset) - depthData.viewPos) - offset;
+            modelMat[3][0] = float(relorigin.x);
+            modelMat[3][1] = float(relorigin.y);
+            elevMVP = depthData.viewProj * modelMat;
+            recalcPos = true;
+        }
+    }
 
     for (auto& label : _labelSet->getLabels()) {
         if (!drawAllLabels && (label->state() == Label::State::dead) ) {
@@ -76,6 +92,10 @@ void LabelManager::processLabelUpdate(const ViewState& _viewState, const LabelSe
 
         // terrain depth is from previous frame, so we must compare label position before Label::update()
         glm::vec4 screenCoord = label->screenCoord();   //glm::vec4(0);
+        if (recalcPos) {
+            auto worldPos = glm::vec4(label->modelCenter(), 1.f);
+            screenCoord = worldToScreenSpace(elevMVP, worldPos, _viewState.viewportSize, behindCam);
+        }
 
         Range transformRange;
         ScreenTransform transform { m_transforms, transformRange };
@@ -192,6 +212,14 @@ void LabelManager::updateLabels(const ViewState& _viewState, float _dt, const Sc
         processLabelUpdate(_viewState, labels, style, nullptr, marker.get(),
                            _scene.elevationManager(), _dt, _onlyRender);
     }
+#ifdef DEBUG
+    if (_scene.elevationManager()) {
+        auto& depthData = _scene.elevationManager()->getDepthData();
+        if (depthData.viewPos != m_lastViewPos || depthData.viewProj != m_lastViewProj) {
+            LOGD("updateLabels frame %d: terrain depth data stale", Scene::frameCount);
+        }
+    }
+#endif
 }
 
 void LabelManager::skipTransitions(const std::vector<const Style*>& _styles, Tile& _tile, Tile& _proxy) const {
@@ -521,7 +549,7 @@ bool LabelManager::withinRepeatDistance(Label *_label) {
     return false;
 }
 
-void LabelManager::updateLabelSet(const ViewState& _viewState, float _dt, const Scene& _scene,
+void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _scene,
                             const std::vector<std::shared_ptr<Tile>>& _tiles,
                             const std::vector<std::unique_ptr<Marker>>& _markers,
                             bool _onlyRender) {
@@ -529,6 +557,7 @@ void LabelManager::updateLabelSet(const ViewState& _viewState, float _dt, const 
     m_transforms.clear();
     m_obbs.clear();
 
+    auto _viewState = _view.state();
     /// Collect and update labels from visible tiles
     updateLabels(_viewState, _dt, _scene, _tiles, _markers, _onlyRender);
     if (_onlyRender) { return; }
@@ -592,6 +621,8 @@ void LabelManager::updateLabelSet(const ViewState& _viewState, float _dt, const 
             }
         }
     }
+    m_lastViewPos = _view.getPosition();
+    m_lastViewProj = _view.getViewProjectionMatrix();
 }
 
 void LabelManager::drawDebug(RenderState& rs, const View& _view) {

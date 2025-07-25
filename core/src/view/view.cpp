@@ -404,7 +404,7 @@ void View::updateMatrices() {
     if (m_type != CameraType::perspective) {
     } else if (prevViewZ > 0 && prevViewZ < 1E9f) {
         double minCameraDist = exp2(-m_maxZoom) * worldToCameraHeight;
-        double prevCamDist = exp2(-m_elevationManager->getDepthBaseZoom()) * worldToCameraHeight;
+        double prevCamDist = exp2(-m_elevationManager->getDepthData().zoom) * worldToCameraHeight;
         double viewZ = prevViewZ + m_pos.z - prevCamDist;
         // decrease base zoom if too close to terrain (but never increase)
         if (viewZ < minCameraDist) {
@@ -575,15 +575,7 @@ LngLat View::screenPositionToLngLat(float x, float y, float* elevOut, bool* inte
 }
 
 glm::dvec2 View::getRelativeMeters(glm::dvec2 projectedMeters) const {
-    double dx = projectedMeters.x - m_pos.x;
-    double dy = projectedMeters.y - m_pos.y;
-    // If the position is closer when wrapped around the 180th meridian, then wrap it.
-    if (dx > MapProjection::EARTH_HALF_CIRCUMFERENCE_METERS) {
-        dx -= MapProjection::EARTH_CIRCUMFERENCE_METERS;
-    } else if (dx < -MapProjection::EARTH_HALF_CIRCUMFERENCE_METERS) {
-        dx += MapProjection::EARTH_CIRCUMFERENCE_METERS;
-    }
-    return {dx, dy};
+    return MapProjection::wrapProjectedMeters(projectedMeters - glm::dvec2(m_pos));
 }
 
 float View::horizonScreenPosition() {

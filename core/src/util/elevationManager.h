@@ -19,11 +19,19 @@ class Texture;
 class ElevationManager
 {
 public:
+  struct DepthData {
+    std::vector<float> depth;
+    int w = 0, h = 0;
+    float zoom = 0;
+    glm::dvec2 viewPos;
+    glm::mat4 viewProj;
+  };
+
   ElevationManager(std::shared_ptr<RasterSource> src, Style& style);
   ~ElevationManager();
   double getElevation(ProjectedMeters pos, bool& ok);
   float getDepth(glm::vec2 screenpos);
-  float getDepthBaseZoom() { return m_depthData[0].zoom; }
+  DepthData& getDepthData() { return m_depthData[0]; }
   bool hasTile(TileID tileId);
   void setMinZoom(int z) { m_minZoom = z; }
 
@@ -36,10 +44,8 @@ public:
   void drawDepthDebug(RenderState& _rs, const View& _view);
 
   std::shared_ptr<RasterSource> m_elevationSource;
-
   std::unique_ptr<Style> m_style;
   std::unique_ptr<FrameBuffer> m_frameBuffer;
-  struct DepthData { std::vector<float> depth; int w = 0, h = 0; float zoom = 0; };
   DepthData m_depthData[2];
   int m_minZoom = 0;
   float m_terrainScale = 1.0f;

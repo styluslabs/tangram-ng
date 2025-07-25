@@ -70,4 +70,13 @@ BoundingBox MapProjection::mapProjectedMetersBounds() {
     return {lngLatToProjectedMeters({bound.min.x, bound.min.y}), lngLatToProjectedMeters({bound.max.x, bound.max.y}) };
 }
 
+ProjectedMeters MapProjection::wrapProjectedMeters(ProjectedMeters meters) {
+    if (meters.x > MapProjection::EARTH_HALF_CIRCUMFERENCE_METERS) {
+        meters.x -= MapProjection::EARTH_CIRCUMFERENCE_METERS;
+    } else if (meters.x < -MapProjection::EARTH_HALF_CIRCUMFERENCE_METERS) {
+        meters.x += MapProjection::EARTH_CIRCUMFERENCE_METERS;
+    }
+    return meters;
+}
+
 } // namespace Tangram

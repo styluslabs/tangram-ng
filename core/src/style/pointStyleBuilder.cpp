@@ -604,7 +604,7 @@ bool PointStyleBuilder::addFeature(const Feature& _feat, const DrawRule& _rule) 
 
             for (size_t i = 0; i < iconsCount; i++) {
                 auto pLabel = static_cast<SpriteLabel*>(m_labels[iconsStart + i].get());
-                auto p = pLabel->modelCenter();
+                glm::vec2 p = pLabel->modelCenter();
                 textStyleBuilder.addLabel(Label::Type::point, {{p, p}}, params, attrib, _rule);
 
                 bool definePriority = !_rule.contains(StyleParamKey::text_priority);

@@ -151,6 +151,7 @@ bool ElevationManager::hasTile(TileID tileId)
 void ElevationManager::renderTerrainDepth(RenderState& _rs, const View& _view,
                                           const std::vector<std::shared_ptr<Tile>>& _tiles)
 {
+  static std::atomic_bool isRunning{false};
   FrameInfo::scope _trace("renderTerrainDepth");
 
   //offscreenWorker.reset();
@@ -182,6 +183,7 @@ void ElevationManager::renderTerrainDepth(RenderState& _rs, const View& _view,
 
   // glReadPixels() blocks on mobile, even when reading to a pixel buffer object, so render and read depth
   //  data on a separate thread using a shared GL context
+  if (isRunning) { LOGD("Terrain depth frame %d skipped", int(Scene::frameCount)); return; }
 
   if(!m_renderState)
     m_renderState = std::make_unique<RenderState>();
@@ -195,6 +197,7 @@ void ElevationManager::renderTerrainDepth(RenderState& _rs, const View& _view,
     std::unique_lock<std::mutex> workerLock(drawMutex);
     std::swap(m_depthData[0], m_depthData[1]);
 
+    isRunning = true;
     m_renderState->flushResourceDeletion();
     int w = _view.getWidth()/bufferScale, h = _view.getHeight()/bufferScale;
     if (!m_frameBuffer || m_frameBuffer->getWidth() != w || m_frameBuffer->getHeight() != h)
@@ -205,6 +208,8 @@ void ElevationManager::renderTerrainDepth(RenderState& _rs, const View& _view,
     d.w = w;
     d.h = h;
     d.zoom = _view.getBaseZoom();
+    d.viewPos = _view.getPosition();
+    d.viewProj = _view.getViewProjectionMatrix();
     if (int(d.depth.size()) != w * h)
       d.depth.resize(w * h, 0.0f);
 
@@ -218,6 +223,7 @@ void ElevationManager::renderTerrainDepth(RenderState& _rs, const View& _view,
     workerLock.unlock();
 
     GL::readPixels(0, 0, w, h, GL_RED_INTEGER, GL_UNSIGNED_INT, d.depth.data());
+    isRunning = false;
   });
 
   // wait for draw to finish to avoid changes to tiles, duplicate texture uploads, etc.

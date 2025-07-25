@@ -74,7 +74,7 @@ public:
         return m_fontAttrib.selectionColor;
     }
 
-    glm::vec2 modelCenter() const override {
+    glm::vec3 modelCenter() const override {
         if (m_type == Label::Type::line) {
             return (m_coordinates[0] + m_coordinates[1]) * 0.5f;
         } else {

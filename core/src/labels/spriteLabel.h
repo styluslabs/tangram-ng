@@ -60,8 +60,8 @@ public:
         return m_vertexAttrib.selectionColor;
     }
 
-    glm::vec2 modelCenter() const override {
-        return glm::vec2(m_coordinates);
+    glm::vec3 modelCenter() const override {
+        return m_coordinates;
     }
 
     const Texture* texture() const override { return m_texture; }

@@ -89,6 +89,8 @@ public:
     // Bounds of the map projection in longitude and latitude.
     static BoundingBox mapLngLatBounds();
 
+    static ProjectedMeters wrapProjectedMeters(ProjectedMeters meters);
+
     static constexpr double tileSize() { return 256; }
 
 };

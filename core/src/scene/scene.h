@@ -232,6 +232,9 @@ public:
     /// set to hide labels with transition.selected < 0
     bool hideExtraLabels = false;
 
+    /// global frame count
+    static int64_t frameCount;
+
     using Lights = std::vector<std::unique_ptr<Light>>;
     using LightShaderBlocks = std::map<std::string, std::string>;
     using TileSources = std::vector<std::shared_ptr<TileSource>>;

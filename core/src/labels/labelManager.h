@@ -37,7 +37,7 @@ public:
 
     // onlyRender: when the view and tiles have not changed one does not need to update the set of
     //  active labels. We just need to render these the labels in this case
-    void updateLabelSet(const ViewState& _viewState, float _dt, const Scene& _scene,
+    void updateLabelSet(const View& _view, float _dt, const Scene& _scene,
                         const std::vector<std::shared_ptr<Tile>>& _tiles,
                         const std::vector<std::unique_ptr<Marker>>& _markers,
                         bool _onlyRender);
@@ -111,6 +111,9 @@ protected:
     std::unordered_map<size_t, std::vector<Label*>> m_repeatGroups;
 
     float m_lastZoom;
+    // view state for last label update;
+    glm::mat4 m_lastViewProj;
+    glm::dvec2 m_lastViewPos;
 };
 
 }
