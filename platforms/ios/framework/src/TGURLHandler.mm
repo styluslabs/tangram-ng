@@ -71,10 +71,10 @@
     if([headers length] > 0) {
         NSArray* hdrs = [headers componentsSeparatedByString:@"\r\n"];
         for (NSString* hdr in hdrs) {
-            NSRange colon = [hdr rangeOfString:@":"];
+            NSRange colon = [hdr rangeOfString:@": "];
             if(colon.location == NSNotFound) continue;
             NSString* key = [hdr substringToIndex:colon.location];
-            NSString* val = [hdr substringFromIndex:colon.location + 1];
+            NSString* val = [hdr substringFromIndex:colon.location + 2];
             [request setValue:val forHTTPHeaderField:key];
         }
     }
