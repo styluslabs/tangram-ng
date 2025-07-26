@@ -212,7 +212,7 @@ void LabelManager::updateLabels(const ViewState& _viewState, float _dt, const Sc
         processLabelUpdate(_viewState, labels, style, nullptr, marker.get(),
                            _scene.elevationManager(), _dt, _onlyRender);
     }
-#ifdef DEBUG
+#if 0  //def DEBUG
     if (_scene.elevationManager()) {
         auto& depthData = _scene.elevationManager()->getDepthData();
         if (depthData.viewPos != m_lastViewPos || depthData.viewProj != m_lastViewProj) {

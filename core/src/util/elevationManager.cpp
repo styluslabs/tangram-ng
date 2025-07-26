@@ -181,9 +181,11 @@ void ElevationManager::renderTerrainDepth(RenderState& _rs, const View& _view,
     return;
   }
 
+  // don't delay frame to wait for terrain depth
+  if (isRunning) { return; }  //LOGD("Terrain depth frame %d skipped", int(Scene::frameCount));
+
   // glReadPixels() blocks on mobile, even when reading to a pixel buffer object, so render and read depth
   //  data on a separate thread using a shared GL context
-  if (isRunning) { LOGD("Terrain depth frame %d skipped", int(Scene::frameCount)); return; }
 
   if(!m_renderState)
     m_renderState = std::make_unique<RenderState>();
