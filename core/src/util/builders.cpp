@@ -1,7 +1,7 @@
 #include "util/builders.h"
 
 #include "util/geom.h"
-
+#include "log.h"
 #include "glm/gtx/rotate_vector.hpp"
 #include "glm/gtx/norm.hpp"
 
@@ -91,6 +91,8 @@ void Builders::buildPolygon(const Polygon& _polygon, float _height, PolygonBuild
             sumVertices++;
         }
     }
+
+    if(!sumVertices && sumPoints > 3) { LOGD("earcut failed for polygon!"); }
 
     uint16_t vertexDataOffset = _ctx.numVertices;
     _ctx.numVertices += sumVertices;
