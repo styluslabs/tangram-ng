@@ -105,6 +105,9 @@ public:
     // Resize the texture
     void resize(int width, int height);
 
+    // optional user data (currently used to store min,max for elevation tiles)
+    std::shared_ptr<void> userData;
+
 protected:
 
     // Bytes per pixel for current PixelFormat options

@@ -148,6 +148,45 @@ bool ElevationManager::hasTile(TileID tileId)
   return ok;
 }
 
+glm::vec2 ElevationManager::getMinMaxElev(TileID tileId, int ancestors)
+{
+  struct ElevTexInfo {
+    float min, max;
+  };
+
+  while(tileId.z > m_elevationSource->zoomOptions().maxZoom) { tileId = tileId.getParent(); }
+  auto tex = m_elevationSource->getTexture(tileId);
+  while(!tex && (tileId.z > 14 || (ancestors-- > 0 && tileId.z > 1))) {
+    tileId = tileId.getParent();
+    tex = m_elevationSource->getTexture(tileId);
+  }
+  if(!tex) { return {0, 9000}; }
+
+  if(!tex->userData) {
+    ElevTexInfo info = {FLT_MAX, -FLT_MAX};
+    size_t npix = tex->width()*tex->height();
+    if(tex->getOptions().pixelFormat == PixelFormat::FLOAT) {
+      float* texbuff = (float*)tex->bufferData();
+      for(size_t ii = 0; ii < npix; ++ii) {
+        info.min = std::min(texbuff[ii], info.min);
+        info.max = std::max(texbuff[ii], info.max);
+      }
+    }
+    else {
+      uint8_t* texbuff = tex->bufferData();
+      for(size_t ii = 0; ii < npix; ++ii) {
+        uint8_t* p = &texbuff[ii*4];
+        float elev = (p[0]*256 + p[1] + p[2]/256.0f) - 32768;
+        info.min = std::min(elev, info.min);
+        info.max = std::max(elev, info.max);
+      }
+    }
+    tex->userData = std::make_shared<ElevTexInfo>(info);
+  }
+  auto* info = static_cast<ElevTexInfo*>(tex->userData.get());
+  return {info->min, info->max};
+}
+
 void ElevationManager::renderTerrainDepth(RenderState& _rs, const View& _view,
                                           const std::vector<std::shared_ptr<Tile>>& _tiles)
 {

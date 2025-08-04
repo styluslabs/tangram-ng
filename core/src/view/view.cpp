@@ -622,6 +622,10 @@ float View::getTileScreenArea(TileID tile) const {
     if (dx > hc) { tc.x -= 1 << tc.z; }
     else if (dx < -hc) { tc.x += 1 << tc.z; }
 
+    // doesn't seem to significantly reduce number of tiles visible, so hold off for now (also need to do memcheck!)
+    //glm::vec2 elevlims = m_elevationManager && tile.z + 4 > int(m_zoom) ?
+    //    m_elevationManager->getMinMaxElev(tile, 3) : glm::vec2(0, 9000);
+
     // use elevation at center of screen (used to calc m_zoom) for tile bottom
     // 1 - 2^(base_z - z) gives normalized distance along pos -> eye vector of terrain intersection, so
     //  multiplying by eye elev gives terrain elev (similar triangles)
@@ -646,16 +650,16 @@ float View::getTileScreenArea(TileID tile) const {
         auto b = glm::transpose(glm::mat4(b00, b01, b10, b11));
         auto wb = glm::abs(b[3]);
 
-        if(allLess(a[0], -wa) && allLess(b[0], -wb)) return 0;
-        if(allGreater(a[0], wa) && allGreater(b[0], wb)) return 0;
-        if(allLess(a[1], -wa) && allLess(b[1], -wb)) return 0;
-        if(allGreater(a[1], wa) && allGreater(b[1], wb)) return 0;
-        if(allLess(a[2], -wa) && allLess(b[2], -wb)) return 0;
-        if(allGreater(a[2], wa) && allGreater(b[2], wb)) return 0;
+        if (allLess(a[0], -wa) && allLess(b[0], -wb))     { return 0; }
+        if (allGreater(a[0], wa) && allGreater(b[0], wb)) { return 0; }
+        if (allLess(a[1], -wa) && allLess(b[1], -wb))     { return 0; }
+        if (allGreater(a[1], wa) && allGreater(b[1], wb)) { return 0; }
+        if (allLess(a[2], -wa) && allLess(b[2], -wb))     { return 0; }
+        if (allGreater(a[2], wa) && allGreater(b[2], wb)) { return 0; }
     } else {
-        if(allLess(a[0], -wa) || allGreater(a[0], wa)) return 0;
-        if(allLess(a[1], -wa) || allGreater(a[1], wa)) return 0;
-        if(allLess(a[2], -wa) || allGreater(a[2], wa)) return 0;
+        if (allLess(a[0], -wa) || allGreater(a[0], wa)) { return 0; }
+        if (allLess(a[1], -wa) || allGreater(a[1], wa)) { return 0; }
+        if (allLess(a[2], -wa) || allGreater(a[2], wa)) { return 0; }
     }
 
     if (m_pitch == 0 || !allGreater(a[3], glm::vec4(0))) return FLT_MAX;

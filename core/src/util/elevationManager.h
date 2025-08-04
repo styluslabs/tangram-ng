@@ -30,6 +30,7 @@ public:
   ElevationManager(std::shared_ptr<RasterSource> src, Style& style);
   ~ElevationManager();
   double getElevation(ProjectedMeters pos, bool& ok);
+  glm::vec2 getMinMaxElev(TileID tileId, int ancestors = 0);
   float getDepth(glm::vec2 screenpos);
   DepthData& getDepthData() { return m_depthData[0]; }
   bool hasTile(TileID tileId);
