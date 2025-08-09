@@ -275,7 +275,7 @@ float ElevationManager::getDepth(glm::vec2 screenpos)
 {
   auto& d = m_depthData[0];
   if(d.depth.empty()) { return 0; }
-  glm::vec2 pos = glm::round(screenpos/bufferScale);
+  glm::vec2 pos = glm::floor(screenpos/bufferScale);
   if(pos.x < 0 || pos.y < 0 || pos.x >= d.w || pos.y >= d.h) { return 0; }
   //return 2*depth[int(pos.x) + int(h - pos.y - 1)*w] - 1;  // convert from 0..1 (glDepthRange) to -1..1 (NDC)
   return m_depthData[0].depth[int(pos.x) + int(d.h - pos.y - 1)*d.w];

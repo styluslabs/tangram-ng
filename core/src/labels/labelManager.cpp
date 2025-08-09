@@ -109,11 +109,11 @@ void LabelManager::processLabelUpdate(const ViewState& _viewState, const LabelSe
         }
 
         if (useElev) {
-            // have to use screen coord after update for newly created label
-            //if (screenCoord.w == 0) { screenCoord = label->screenCoord(); }
+            // clamp to viewport to get reasonable behavior for labels entering and leaving screen
+            glm::vec2 xyclamped = glm::clamp(glm::vec2(screenCoord), {0,0}, screenBounds.max - 1.0f);
             float labelz = 1/screenCoord.w;
-            float zdn = _elevManager->getDepth({screenCoord.x, screenCoord.y+2});
-            float zup = _elevManager->getDepth({screenCoord.x, screenCoord.y-2});
+            float zdn = _elevManager->getDepth({xyclamped.x, xyclamped.y+2});
+            float zup = _elevManager->getDepth({xyclamped.x, xyclamped.y-2});
 
             // need some hysteresis to reduce label flashing; hysteresis on thresh does not work well
             bool wasBehind = label->state() == Label::State::out_of_screen;
