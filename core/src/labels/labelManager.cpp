@@ -59,7 +59,8 @@ void LabelManager::processLabelUpdate(const ViewState& _viewState, const LabelSe
     bool setElev = useElev && (_marker || _elevManager->hasTile(_tile->getID()));
     if (useElev) {
         if (_tile) {
-            _elevManager->setMinZoom(!_tile->rasters().empty() ? _tile->rasters().back().tileID.z : 0);
+            _elevManager->setMinZoom(!_tile->rasters().empty() ?
+                                     _tile->rasters().back().tileID.z : std::min(int(_tile->getID().z), 14));
         }
         // if depth data is older than last frame, we have to recalculate label positions
         auto& depthData = _elevManager->getDepthData();
@@ -149,7 +150,7 @@ void LabelManager::processLabelUpdate(const ViewState& _viewState, const LabelSe
         }
     }
 
-    if (_elevManager) { _elevManager->setMinZoom(0); }
+    if (useElev && _tile) { _elevManager->setMinZoom(0); }
 }
 
 std::pair<Label*, const Tile*> LabelManager::getLabel(uint32_t _selectionColor) const {
@@ -183,6 +184,7 @@ void LabelManager::updateLabels(const ViewState& _viewState, float _dt, const Sc
 
     m_needUpdate = false;
 
+    auto* elevManager = _scene.elevationManager();
     const auto& _styles = _scene.styles();
     for (const auto& tile : _tiles) {
         for (const auto& style : _styles) {
@@ -191,8 +193,14 @@ void LabelManager::updateLabels(const ViewState& _viewState, float _dt, const Sc
             if (!labels) { continue; }
 
             processLabelUpdate(_viewState, labels, style.get(), tile.get(), nullptr,
-                               _scene.elevationManager(), _dt, _onlyRender);
+                               elevManager, _dt, _onlyRender);
         }
+    }
+
+    // Marker::builtZoomLevel() does not account for 3D LOD; more correct approach would be to figure out
+    //  which tile marker sits on (needs one pass over _tiles per marker)
+    if (elevManager && !_tiles.empty()) {
+        elevManager->setMinZoom(std::min(int(_tiles.back()->getID().z), 14));
     }
 
     for (const auto& marker : _markers) {
@@ -210,8 +218,10 @@ void LabelManager::updateLabels(const ViewState& _viewState, float _dt, const Sc
         if (!style || !labels) { continue; }
 
         processLabelUpdate(_viewState, labels, style, nullptr, marker.get(),
-                           _scene.elevationManager(), _dt, _onlyRender);
+                           elevManager, _dt, _onlyRender);
     }
+
+    if (elevManager) { elevManager->setMinZoom(0); }
 #if 0  //def DEBUG
     if (_scene.elevationManager()) {
         auto& depthData = _scene.elevationManager()->getDepthData();
@@ -585,6 +595,8 @@ void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _sc
 
     Label::AABB screenBounds{0, 0, _viewState.viewportSize.x, _viewState.viewportSize.y};
 
+    auto* elevManager = _scene.elevationManager();
+    int markerMinZ = elevManager && !_tiles.empty() ? std::min(int(_tiles.back()->getID().z), 14) : 0;
     // Update label meshes
     for (auto& entry : m_labels) {
 
@@ -604,8 +616,9 @@ void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _sc
                 }
             }
 
-            processLabelUpdate(_viewState, labels, style, nullptr, alt,
-                               _scene.elevationManager(), _dt, false);
+            if (elevManager) { elevManager->setMinZoom(markerMinZ); }
+            processLabelUpdate(_viewState, labels, style, nullptr, alt, elevManager, _dt, false);
+            if (elevManager) { elevManager->setMinZoom(0); }
             continue;
         }
 

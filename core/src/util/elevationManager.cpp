@@ -134,6 +134,7 @@ double ElevationManager::getElevation(ProjectedMeters pos, bool& ok)
   if(raster.texture) {
     prevTileId = raster.tileID;
     prevTex = raster.texture;
+    ok = raster.tileID.z + 4 > m_minZoom;
     return elevationLerp(*raster.texture, raster.tileID, pos);
   }
 
