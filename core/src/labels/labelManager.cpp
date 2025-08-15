@@ -198,7 +198,7 @@ void LabelManager::updateLabels(const ViewState& _viewState, float _dt, const Sc
     }
 
     // Marker::builtZoomLevel() does not account for 3D LOD; more correct approach would be to figure out
-    //  which tile marker sits on (needs one pass over _tiles per marker)
+    //  which tile each marker sits on (needs one pass over _tiles per marker)
     if (elevManager && !_tiles.empty()) {
         elevManager->setMinZoom(std::min(int(_tiles.back()->getID().z), 14));
     }
@@ -353,17 +353,18 @@ bool LabelManager::priorityComparator(const LabelEntry& _a, const LabelEntry& _b
     if (l1->occludedLastFrame() != l2->occludedLastFrame()) {
         return l2->occludedLastFrame();  // non-occluded over occluded
     }
-    // This prefers labels within screen over out_of_screen.
-    // Important for repeat groups!
-    if (l1->visibleState() != l2->visibleState()) {
-        return l1->visibleState();
-    }
 
     // marker labels can be very dense since they are not prefiltered by LabelCollider, so to avoid flashing
     //  we want history over fractional priority
     if (!_a.tile) {
         if (_a.priority != _b.priority) { return _a.priority < _b.priority; }  // already know int parts equal
         if (l1->isChild() != l2->isChild()) { return l2->isChild(); }  // non-child over child
+    }
+
+    // This prefers labels within screen over out_of_screen. Important for repeat groups!
+    // Must be after sort on child because parent could be out of screen when child is not
+    if (l1->visibleState() != l2->visibleState()) {
+        return l1->visibleState();
     }
 
     if (l1->options().repeatGroup != l2->options().repeatGroup) {
@@ -578,7 +579,6 @@ void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _sc
 
     if (int(m_lastZoom) != int(_viewState.zoom)) {
         skipTransitions(_scene, _tiles, *_scene.tileManager(), _viewState.zoom);
-        m_lastZoom = _viewState.zoom;
     }
 
     m_isect2d.resize({_viewState.viewportSize.x / 256, _viewState.viewportSize.y / 256},
@@ -588,6 +588,9 @@ void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _sc
 
     // Update label state
     for (auto& entry : m_labels) {
+        //if (m_lastZoom < _viewState.zoom && entry.label->isOccluded() && !entry.label->occludedLastFrame()) {
+        //    LOGD("Label hidden on zoom in: %s (%d labels)", entry.label->debugTag.c_str(), int(m_labels.size()));
+        //}
         m_needUpdate |= entry.label->evalState(_dt);
     }
 
@@ -634,6 +637,7 @@ void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _sc
             }
         }
     }
+    m_lastZoom = _viewState.zoom;
     m_lastViewPos = _view.getPosition();
     m_lastViewProj = _view.getViewProjectionMatrix();
 }
