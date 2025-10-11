@@ -320,7 +320,8 @@ ElevationManager::~ElevationManager()
 {
   if(!offscreenWorker) { return; }
   offscreenWorker->enqueue([_style=m_style.release(), _fb=m_frameBuffer.release()](){
-    m_renderState->framebuffer(0);  // make sure RenderState doesn't cache handle of deleted framebuffer
+    // make sure RenderState doesn't cache handle of deleted framebuffer
+    if(m_renderState) { m_renderState->framebuffer(0); }
     delete _style;
     delete _fb;
     //delete _rs;
