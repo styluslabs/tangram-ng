@@ -25,6 +25,7 @@ class RasterSource : public TileSource {
 
     friend class RasterTileTask;
     friend class TileSource;
+    friend class FrameInfo;
 protected:
     std::shared_ptr<TileData> m_tileData;
 

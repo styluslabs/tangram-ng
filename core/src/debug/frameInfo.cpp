@@ -9,6 +9,7 @@
 #include "marker/markerManager.h"
 #include "labels/labelManager.h"
 #include "tile/tileCache.h"
+#include "data/rasterSource.h"
 
 #include <deque>
 #include <ctime>
@@ -158,14 +159,27 @@ void FrameInfo::draw(RenderState& rs, const View& _view, Map& _map) {
                 + ":" + std::to_string(count.second);
         }
 
+        // try to get size of all rasters
+        std::string rasterSizeStr = "Rasters: ";
+        for (const auto& source : scene.tileSources()) {
+            if (!source->isRaster()) { continue; }
+            size_t ntex = 0, srcbytes = 0;
+            RasterSource::Cache* srctexs = static_cast<RasterSource*>(source.get())->m_textures.get();
+            for(auto& kv : *srctexs) {
+                auto tex = kv.second.lock();
+                if(tex) { ++ntex; srcbytes += tex->bufferSize(); }
+            }
+            rasterSizeStr += source->name() + fstring(":%d (%dKB) ", int(ntex), int(srcbytes/1024));
+        }
+
         debuginfos.push_back(fstring("zoom:%.3f; base:%.3f (d:%.0fm, h:%.0fm); pitch:%.2fdeg",
             _view.getZoom(), _view.getBaseZoom(), _view.getPosition().z, _view.getEye().z, _view.getPitch()*180/M_PI));
         debuginfos.push_back(fstring("tiles:%d (proxy:%d);", tiles.size(), nproxy) + countsStr);
-        debuginfos.push_back(fstring("selectable features:%d", features));
-        debuginfos.push_back(fstring("markers:%d", scene.markerManager()->markers().size()));
+        debuginfos.push_back(fstring("selectable features:%d; markers:%d", features, scene.markerManager()->markers().size()));
         debuginfos.push_back(fstring("tile cache:%d (%dKB) (max:%dKB)", tileCache.getNumEntries(),
             tileCache.getMemoryUsage()/1024, tileCache.cacheSizeLimit()/1024));
         debuginfos.push_back(fstring("tile size:%dKB", memused / 1024));
+        debuginfos.push_back(rasterSizeStr);
 #ifdef DEBUG
 #ifdef TANGRAM_LINUX // || defined(TANGRAM_ANDROID) -- also supported on Android
         struct mallinfo2 mi;

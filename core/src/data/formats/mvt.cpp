@@ -90,9 +90,9 @@ Feature Mvt::getFeature(ParserContext& _ctx, protobuf::message _featureIn) {
 
     Feature feature(_ctx.sourceId);
 
+    size_t numTags = 0;
     _ctx.featureTags.clear();
     _ctx.featureTags.assign(_ctx.keys.size(), -1);
-
 
     while(_featureIn.next()) {
         switch(_featureIn.tag) {
@@ -125,6 +125,7 @@ Feature Mvt::getFeature(ParserContext& _ctx, protobuf::message _featureIn) {
                     }
 
                     _ctx.featureTags[tagKey] = valueKey;
+                    ++numTags;
                 }
                 break;
             }
@@ -143,7 +144,7 @@ Feature Mvt::getFeature(ParserContext& _ctx, protobuf::message _featureIn) {
     }
 
     std::vector<Properties::Item> properties;
-    properties.reserve(_ctx.featureTags.size());
+    properties.reserve(numTags);
 
     for (int tagKey : _ctx.orderedKeys) {
         int tagValue = _ctx.featureTags[tagKey];
