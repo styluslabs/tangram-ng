@@ -374,6 +374,9 @@ bool MBTilesDataSource::testSchema(SQLiteDB& db) {
 
     bool metadata = false, tiles = false;  //, grids = false, grid_data = false;
 
+    // switching scenes rapidly can cause SQLITE_BUSY error when previous instance hasn't closed DB yet
+    sqlite3_busy_timeout(db.db, 2000);
+
     db.stmt("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')").exec([&](std::string name){
         // required
         if (name == "metadata") metadata = true;
@@ -407,6 +410,7 @@ bool MBTilesDataSource::testSchema(SQLiteDB& db) {
 
     // one issue w/ WAL is lack of clean application exit on mobile to flush it
     //db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+    sqlite3_busy_timeout(db.db, 0);  // should not be any other writers
 
     return true;
 }

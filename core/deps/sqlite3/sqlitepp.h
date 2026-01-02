@@ -7,7 +7,7 @@
 
 #ifndef SQLITEPP_LOGE
 #include <stdio.h>
-#define SQLITEPP_LOG(msg, ...) do { fprintf(stderr, msg, ## __VA_ARGS__); } while (0)
+#define SQLITEPP_LOG(msg, ...) do { fprintf(stderr, "%s:%d: " msg, __FILENAME__, __LINE__, ## __VA_ARGS__); } while (0)
 #define SQLITEPP_LOGW SQLITEPP_LOG
 #define SQLITEPP_LOGE SQLITEPP_LOG
 #warning "SQLITEPP_LOGE not defined, using default."

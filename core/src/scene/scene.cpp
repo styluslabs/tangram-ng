@@ -552,13 +552,16 @@ std::shared_ptr<Texture> SceneTextures::get(const std::string& _name) {
 
 void Scene::runTextureTasks() {
 
+    std::weak_ptr<ScenePrana> wprana(m_prana);
     for (auto& task : m_textures.tasks) {
         if (task.started) { continue; }
         task.started = true;
 
         LOG("Fetch texture %s", task.url.string().c_str());
 
-        auto cb = [this, &task](UrlResponse&& response) {
+        auto cb = [this, wprana, &task](UrlResponse&& response) {
+            auto sprana = wprana.lock();  // protect against running callback after scene destruction
+            if(!sprana || m_state == State::canceled) { return; }
             LOG("Received texture %s", task.url.string().c_str());
             if (response.error) {
                 LOGE("Error retrieving URL '%s': %s", task.url.string().c_str(), response.error);
@@ -615,20 +618,24 @@ void SceneFonts::add(const std::string& _uri, const std::string& _family,
 
 void Scene::runFontTasks() {
 
+    std::weak_ptr<ScenePrana> wprana(m_prana);
     for (auto& task : m_fonts.tasks) {
         if (task.started) { continue; }
         task.started = true;
 
         LOG("Fetch font %s", task.ft.uri.c_str());
 
-        auto cb = [this, &task](UrlResponse&& response) {
-             std::unique_lock<std::mutex> lock(m_taskMutex);
-             LOG("Received font: %s", task.ft.uri.c_str());
-             task.response = std::move(response);
-             task.done = true;
+        auto cb = [this, wprana, &task](UrlResponse&& response) {
+            auto sprana = wprana.lock();  // protect against running callback after scene destruction
+            if(!sprana || m_state == State::canceled) { return; }
 
-             m_tasksActive--;
-             m_taskCondition.notify_one();
+            std::unique_lock<std::mutex> lock(m_taskMutex);
+            LOG("Received font: %s", task.ft.uri.c_str());
+            task.response = std::move(response);
+            task.done = true;
+
+            m_tasksActive--;
+            m_taskCondition.notify_one();
         };
 
         m_tasksActive++;
