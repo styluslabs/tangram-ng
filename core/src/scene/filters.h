@@ -2,6 +2,7 @@
 
 #include "util/variant.h"
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
