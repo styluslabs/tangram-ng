@@ -240,6 +240,8 @@ target_link_libraries(tangram-core
   double-conversion
   miniz
   Lerc
+  webp
+  webpdecoder
 )
 
 if(TANGRAM_USE_FONTCONTEXT_STB)

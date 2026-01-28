@@ -96,6 +96,21 @@ add_subdirectory(double-conversion)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
 add_subdirectory(lerc)
 
+## libwebp ##
+#############
+option(WEBP_BUILD_ANIM_UTILS "" OFF)
+option(WEBP_BUILD_CWEBP "" OFF)
+option(WEBP_BUILD_DWEBP "" OFF)
+option(WEBP_BUILD_GIF2WEBP "" OFF)
+option(WEBP_BUILD_IMG2WEBP "" OFF)
+option(WEBP_BUILD_LIBWEBPMUX "" OFF)
+option(WEBP_BUILD_VWEBP "" OFF)
+option(WEBP_BUILD_WEBPINFO "" OFF)
+option(WEBP_BUILD_WEBPMUX "" OFF)
+option(WEBP_NEAR_LOSSLESS "" OFF)
+option(WEBP_BUILD_EXTRAS "" OFF)
+option(WEBP_UNICODE "" OFF)
+add_subdirectory(libwebp)
 
 ## Prebuild JavascriptCore ##
 #############################

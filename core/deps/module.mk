@@ -129,3 +129,18 @@ MODULE_INC_PRIVATE = Lerc1Decode
 MODULE_INC_PUBLIC = .
 
 include $(ADD_MODULE)
+
+## WebP
+MODULE_BASE = $(MAKE_BASE)/libwebp
+MODULE_INC_PRIVATE = . src/webp
+
+libwebp.a:
+	$(MAKE) -C $(MODULE_BASE) -f makefile.unix src/libwebp.a
+
+libwebpdecoder.a:
+	$(MAKE) -C $(MODULE_BASE) -f makefile.unix src/libwebpdecoder.a
+
+LIBS += -L $(MODULE_BASE)/src -lwebp -lwebpdecoder
+
+include $(ADD_MODULE)
+
