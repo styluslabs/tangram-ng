@@ -225,6 +225,7 @@ target_include_directories(tangram-core
   deps/geojson-vt-cpp/include
   deps/double-conversion/include
   deps/lerc/src/LercLib
+  deps/libwebp/src
 )
 
 if (WIN32)
@@ -243,6 +244,8 @@ target_link_libraries(tangram-core
   webp
   webpdecoder
 )
+
+target_compile_definitions(tangram-core PRIVATE TANGRAM_WEBP_SUPPORT)
 
 if(TANGRAM_USE_FONTCONTEXT_STB)
   target_compile_definitions(tangram-core PRIVATE FONTCONTEXT_STB=1)

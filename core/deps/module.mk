@@ -130,17 +130,17 @@ MODULE_INC_PUBLIC = .
 
 include $(ADD_MODULE)
 
+ifeq ($(windir),) ## this section only works for unix-like systems 
 ## WebP
 MODULE_BASE = $(MAKE_BASE)/libwebp
-MODULE_INC_PRIVATE = . src/webp
-
-libwebp.a:
-	$(MAKE) -C $(MODULE_BASE) -f makefile.unix src/libwebp.a
-
-libwebpdecoder.a:
-	$(MAKE) -C $(MODULE_BASE) -f makefile.unix src/libwebpdecoder.a
-
-LIBS += -L $(MODULE_BASE)/src -lwebp -lwebpdecoder
+MODULE_INC_PRIVATE = src
+WEBP_GEN := libwebp.a
+GENERATED += $(WEBP_GEN)
+LIBS += -L $(MAKE_BASE)/libwebp/src -lwebp
 
 include $(ADD_MODULE)
+endif
+
+libwebp.a:
+	$(MAKE) -C $(MAKE_BASE)/libwebp -f makefile.unix src/libwebp.a
 
