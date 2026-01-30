@@ -24,3 +24,6 @@
 [submodule "core/deps/lerc"]
 	path = core/deps/lerc
 	url = https://github.com/Esri/lerc
+[submodule "core/deps/libwebp"]
+	path = core/deps/libwebp
+	url = https://github.com/webmproject/libwebp

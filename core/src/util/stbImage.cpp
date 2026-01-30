@@ -15,6 +15,7 @@
 
 #define TANGRAM_TIFF_SUPPORT
 #define TANGRAM_LERC_SUPPORT
+// #define TANGRAM_WEBP_SUPPORT
 
 #ifdef TANGRAM_TIFF_SUPPORT
 #define TINY_DNG_LOADER_IMPLEMENTATION
@@ -28,6 +29,10 @@
 
 #ifdef TANGRAM_LERC_SUPPORT
 #include "Lerc.h"
+#endif
+
+#ifdef TANGRAM_WEBP_SUPPORT
+#include "webp/decode.h"
 #endif
 
 namespace Tangram {
@@ -191,6 +196,34 @@ uint8_t* loadImage(const uint8_t* data, size_t length, int* width, int* height, 
 #endif
     }
 
+#ifdef TANGRAM_WEBP_SUPPORT
+    WebPBitstreamFeatures features;
+    uint8_t *img_data, *flipped_img_data;
+    if (WebPGetFeatures(data, length, &features) == VP8_STATUS_OK) {
+         
+        if (channels == 4) {
+            img_data = WebPDecodeRGBA(data, length, width, height);
+            *pixelfmt = GL_RGBA8;
+        } else if (channels == 3){
+            img_data = WebPDecodeRGB(data, length, width, height);
+            *pixelfmt = GL_RGB8;
+        } else {
+            LOGE("WebP: Unspported number of components requested (%d)", channels);
+            return nullptr;
+        }
+        
+        if (!img_data){
+            LOGE("Error loading WebP image data");
+            return nullptr;
+        }
+        
+        flipped_img_data = flipImage(img_data, *width, *height, channels);
+        WebPFree(img_data);
+        return flipped_img_data;
+    }
+#endif
+
+    
     int channelsInFile = 0;
     std::unique_ptr<uint8_t, malloc_deleter> pixels(
         stbi_load_from_memory(data, int(length), width, height, &channelsInFile, channels));
