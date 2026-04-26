@@ -50,13 +50,13 @@ static constexpr const char * past_last_slash(const char * const str) {
 do { Tangram::logAll(Tangram::fstring(level " %s:%d: " fmt "\n", __FILENAME__, __LINE__, ## __VA_ARGS__)); } while(0)
 
 #if LOG_LEVEL >= 4
-#define LOGV(fmt, ...) LOG_LINE("VERBOSE", fmt, ## __VA_ARGS__)
+#define LOGV(fmt, ...) LOG_LINE("\x1b[34m" "VERBOSE", fmt "\x1b[0m", ## __VA_ARGS__)
 #else
 #define LOGV(fmt, ...)
 #endif
 
 #if LOG_LEVEL >= 3
-#define LOGD(fmt, ...) LOG_LINE("DEBUG", fmt, ## __VA_ARGS__)
+#define LOGD(fmt, ...) LOG_LINE("\x1b[32m" "DEBUG", fmt "\x1b[0m", ## __VA_ARGS__)
 #else
 #define LOGD(fmt, ...)
 #endif
