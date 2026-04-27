@@ -270,6 +270,13 @@ if(TANGRAM_MBTILES_DATASOURCE)
   target_compile_definitions(tangram-core PRIVATE TANGRAM_MBTILES_DATASOURCE=1)
 endif()
 
+# Add PMTiles implementation.
+if(TANGRAM_PMTILES_DATASOURCE)
+  target_sources(tangram-core PRIVATE src/data/pmtilesDataSource.cpp)
+  target_link_libraries(tangram-core PRIVATE pmtiles)
+  target_compile_definitions(tangram-core PRIVATE TANGRAM_PMTILES_DATASOURCE=1)
+endif()
+
 if(UNIX AND NOT APPLE)
   # SQLite needs dl dynamic library loader when Linux
   target_link_libraries(tangram-core PRIVATE dl)

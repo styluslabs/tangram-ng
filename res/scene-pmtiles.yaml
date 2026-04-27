@@ -1,0 +1,21 @@
+import:
+    - osm-bright.yaml
+
+global:
+    font_sans: "Inter"
+
+# PMTiles Demo - Remote PMTiles source from Protomaps
+# This demonstrates loading vector tiles from a remote PMTiles archive using HTTP range requests
+sources:
+    protomaps-basemap:
+        type: MVT
+        max_zoom: 14
+        # Public Protomaps basemap PMTiles archive
+        # This uses HTTP range requests to efficiently fetch only the needed tiles
+        url: "https://build.protomaps.com/20230901.pmtiles"
+        
+    # Alternative: Uncomment to use a local PMTiles file
+    # local-pmtiles:
+    #     type: MVT
+    #     max_zoom: 14
+    #     url: "file:///path/to/your/local.pmtiles"

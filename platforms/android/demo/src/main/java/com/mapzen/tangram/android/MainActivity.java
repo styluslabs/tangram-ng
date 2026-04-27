@@ -52,7 +52,8 @@ public class MainActivity extends AppCompatActivity implements MapController.Sce
 
     private static final String[] SCENE_PRESETS = {
             "asset:///scene.yaml",
-            "asset:///scene3d.yaml"
+            "asset:///scene3d.yaml",
+            "asset:///scene-pmtiles.yaml"
             //"https://www.nextzen.org/carto/bubble-wrap-style/9/bubble-wrap-style.zip",
             //"https://www.nextzen.org/carto/refill-style/11/refill-style.zip",
             //"https://www.nextzen.org/carto/walkabout-style/7/walkabout-style.zip",

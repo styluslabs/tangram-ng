@@ -197,7 +197,11 @@ static const NSUInteger MAX_TAPPED_LOCATIONS = 8;
 
     TGMapView *mapView = (TGMapView *)self.view;
 
+    // Load scene - default bubble-wrap style
     [mapView loadSceneAsyncFromURL:[NSURL URLWithString:@"https://www.nextzen.org/carto/bubble-wrap-style/9/bubble-wrap-style.zip"] withUpdates:updates];
+    
+    // Alternative: Load PMTiles demo scene (uncomment to test remote PMTiles)
+    // [mapView loadSceneAsyncFromURL:[NSURL URLWithString:@"asset:///scene-pmtiles.yaml"] withUpdates:nil];
 
     //Location tracking marker setup
     TGMarker* markerPoint = [mapView markerAdd];
