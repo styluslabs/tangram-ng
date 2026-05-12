@@ -9,28 +9,26 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.mapzen.tangram.CameraPosition;
-import com.mapzen.tangram.CameraUpdateFactory;
-import com.mapzen.tangram.FeaturePickListener;
-import com.mapzen.tangram.FeaturePickResult;
-import com.mapzen.tangram.LabelPickListener;
-import com.mapzen.tangram.LabelPickResult;
-import com.mapzen.tangram.LngLat;
-import com.mapzen.tangram.MapChangeListener;
-import com.mapzen.tangram.MapController;
-import com.mapzen.tangram.MapData;
-import com.mapzen.tangram.MapView;
-import com.mapzen.tangram.Marker;
-import com.mapzen.tangram.MarkerPickListener;
-import com.mapzen.tangram.MarkerPickResult;
-import com.mapzen.tangram.SceneError;
-import com.mapzen.tangram.SceneUpdate;
-import com.mapzen.tangram.TouchInput;
-import com.mapzen.tangram.TouchInput.DoubleTapResponder;
-import com.mapzen.tangram.TouchInput.LongPressResponder;
-import com.mapzen.tangram.TouchInput.TapResponder;
-import com.mapzen.tangram.networking.DefaultHttpHandler;
-import com.mapzen.tangram.networking.HttpHandler;
+import com.styluslabs.tangram.CameraPosition;
+import com.styluslabs.tangram.CameraUpdateFactory;
+import com.styluslabs.tangram.FeaturePickListener;
+import com.styluslabs.tangram.FeaturePickResult;
+import com.styluslabs.tangram.LabelPickListener;
+import com.styluslabs.tangram.LabelPickResult;
+import com.styluslabs.tangram.LngLat;
+import com.styluslabs.tangram.MapChangeListener;
+import com.styluslabs.tangram.MapClickListener;
+import com.styluslabs.tangram.MapController;
+import com.styluslabs.tangram.MapData;
+import com.styluslabs.tangram.MapInteractionListener;
+import com.styluslabs.tangram.MapView;
+import com.styluslabs.tangram.Marker;
+import com.styluslabs.tangram.MarkerPickListener;
+import com.styluslabs.tangram.MarkerPickResult;
+import com.styluslabs.tangram.SceneError;
+import com.styluslabs.tangram.SceneUpdate;
+import com.styluslabs.tangram.networking.DefaultHttpHandler;
+import com.styluslabs.tangram.networking.HttpHandler;
 
 import java.io.File;
 import java.util.*;
@@ -42,8 +40,7 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
-public class MainActivity extends AppCompatActivity implements MapController.SceneLoadListener, TapResponder,
-        DoubleTapResponder, LongPressResponder, FeaturePickListener, LabelPickListener, MarkerPickListener,
+public class MainActivity extends AppCompatActivity implements MapController.SceneLoadListener, FeaturePickListener, LabelPickListener, MarkerPickListener,
         MapView.MapReadyCallback {
 
     //private static final String NEXTZEN_API_KEY = BuildConfig.NEXTZEN_API_KEY;
@@ -117,6 +114,73 @@ public class MainActivity extends AppCompatActivity implements MapController.Sce
         String sceneUrl = sceneSelector.getCurrentString();
         map.setSceneLoadListener(this);
 
+        mapController.setMapInteractionListener(new MapInteractionListener() {
+            public boolean onMapInteraction(boolean isPanning, boolean isZooming,
+                                            boolean isRotating, boolean isTilting) {
+                Log.d(TAG, "onMapInteraction isPanning:" + isPanning + " isZooming:" + isZooming + " isRotating:" + isRotating + " isTilting:" + isTilting);
+                // Handle interaction start
+                return false; // false = allow default behavior
+            }
+        });
+        mapController.setMapClickListener(new MapClickListener() {
+            @Override
+            public boolean onMapClick(ClickType clickType, float x, float y) {
+                Log.d(TAG, "onMapClick: " + clickType + " x:" + x + " y:" + y);
+                switch (clickType) {
+                    case CLICK_TYPE_SINGLE: {
+                        LngLat tappedPoint = map.screenPositionToLngLat(new PointF(x, y));
+
+                        map.pickFeature(x, y);
+                        map.pickLabel(x, y);
+                        map.pickMarker(x, y);
+
+                        map.updateCameraPosition(CameraUpdateFactory.setPosition(tappedPoint), 1000, new MapController.CameraAnimationCallback() {
+                            @Override
+                            public void onFinish() {
+                                Log.d("Tangram","finished!");
+                            }
+
+                            @Override
+                            public void onCancel() {
+                                Log.d("Tangram","canceled!");
+                            }
+                        });
+                        return true;
+                    }
+                    case CLICK_TYPE_DOUBLE: {
+//                        LngLat tapped = map.screenPositionToLngLat(new PointF(x, y));
+//
+//                        Marker p = map.addMarker();
+//                        p.setStylingFromPath(pointStylingPath);
+//                        p.setPoint(tapped);
+//                        pointMarkers.add(p);
+
+//                        CameraPosition camera = map.getCameraPosition();
+//
+//                        camera.longitude = .5 * (tapped.longitude + camera.longitude);
+//                        camera.latitude = .5 * (tapped.latitude + camera.latitude);
+//                        camera.zoom += 1;
+//                        map.updateCameraPosition(CameraUpdateFactory.newCameraPosition(camera),
+//                                500, MapController.EaseType.CUBIC);
+//                        return true;
+                        break;
+                    }
+                    case CLICK_TYPE_LONG: {
+
+                        map.removeAllMarkers();
+                        pointMarkers.clear();
+                        tappedPoints.clear();
+                        mapData.clear();
+                        showTileInfo = !showTileInfo;
+                        map.setDebugFlag(MapController.DebugFlag.TILE_INFOS, showTileInfo);
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        });
+
         LngLat startPoint = new LngLat(-74.00976419448854, 40.70532700869127);
         map.updateCameraPosition(CameraUpdateFactory.newLngLatZoom(startPoint, 16));
         Log.d("Tangram", "START SCENE LOAD");
@@ -126,11 +190,6 @@ public class MainActivity extends AppCompatActivity implements MapController.Sce
         p.setStylingFromPath(pointStylingPath);
         p.setPoint(startPoint);
         pointMarkers.add(p);
-
-        TouchInput touchInput = map.getTouchInput();
-        touchInput.setTapResponder(this);
-        touchInput.setDoubleTapResponder(this);
-        touchInput.setLongPressResponder(this);
 
         map.setFeaturePickListener(this);
         map.setLabelPickListener(this);
@@ -225,63 +284,6 @@ public class MainActivity extends AppCompatActivity implements MapController.Sce
         };
     }
 
-    @Override
-    public boolean onSingleTapUp(float x, float y) {
-        return false;
-    }
-
-    @Override
-    public boolean onSingleTapConfirmed(float x, float y) {
-        LngLat tappedPoint = map.screenPositionToLngLat(new PointF(x, y));
-
-        map.pickFeature(x, y);
-        map.pickLabel(x, y);
-        map.pickMarker(x, y);
-
-        map.updateCameraPosition(CameraUpdateFactory.setPosition(tappedPoint), 1000, new MapController.CameraAnimationCallback() {
-            @Override
-            public void onFinish() {
-                Log.d("Tangram","finished!");
-            }
-
-            @Override
-            public void onCancel() {
-                Log.d("Tangram","canceled!");
-            }
-        });
-
-        return true;
-    }
-
-    @Override
-    public boolean onDoubleTap(float x, float y) {
-
-        LngLat tapped = map.screenPositionToLngLat(new PointF(x, y));
-
-        Marker p = map.addMarker();
-        p.setStylingFromPath(pointStylingPath);
-        p.setPoint(tapped);
-        pointMarkers.add(p);
-
-        CameraPosition camera = map.getCameraPosition();
-
-        camera.longitude = .5 * (tapped.longitude + camera.longitude);
-        camera.latitude = .5 * (tapped.latitude + camera.latitude);
-        camera.zoom += 1;
-        map.updateCameraPosition(CameraUpdateFactory.newCameraPosition(camera),
-                    500, MapController.EaseType.CUBIC);
-        return true;
-    }
-
-    @Override
-    public void onLongPress(float x, float y) {
-        map.removeAllMarkers();
-        pointMarkers.clear();
-        tappedPoints.clear();
-        mapData.clear();
-        showTileInfo = !showTileInfo;
-        map.setDebugFlag(MapController.DebugFlag.TILE_INFOS, showTileInfo);
-    }
 
     @Override
     public void onFeaturePickComplete(@Nullable final FeaturePickResult result) {

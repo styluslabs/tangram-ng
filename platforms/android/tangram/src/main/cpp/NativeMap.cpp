@@ -29,6 +29,80 @@ std::vector<Tangram::SceneUpdate> unpackSceneUpdates(JNIEnv* jniEnv, jobjectArra
     return sceneUpdates;
 }
 
+// JNI wrapper for MapClickListener
+class JniMapClickListener : public MapClickListener {
+public:
+    JniMapClickListener(JNIEnv* env, jobject listener) {
+        m_listener = env->NewGlobalRef(listener);
+        jclass listenerClass = env->GetObjectClass(listener);
+        // The ClickType enum is nested inside MapClickListener, so the signature is:
+        // (Lcom/styluslabs/tangram/MapClickListener$ClickType;FF)Z
+        m_onMapClickMethod = env->GetMethodID(listenerClass, "onMapClick", "(Lcom/styluslabs/tangram/MapClickListener$ClickType;FF)Z");
+        env->DeleteLocalRef(listenerClass);
+        
+        // Get the ClickType enum class and values
+        jclass clickTypeClass = env->FindClass("com/styluslabs/tangram/MapClickListener$ClickType");
+        jmethodID valuesMethod = env->GetStaticMethodID(clickTypeClass, "values", "()[Lcom/styluslabs/tangram/MapClickListener$ClickType;");
+        jobjectArray clickTypeValues = (jobjectArray)env->CallStaticObjectMethod(clickTypeClass, valuesMethod);
+        
+        // Cache the enum values
+        for (int i = 0; i < 4; i++) {
+            m_clickTypeValues[i] = env->NewGlobalRef(env->GetObjectArrayElement(clickTypeValues, i));
+        }
+        
+        env->DeleteLocalRef(clickTypeValues);
+        env->DeleteLocalRef(clickTypeClass);
+    }
+    
+    ~JniMapClickListener() {
+        JniThreadBinding jniEnv(JniHelpers::getJVM());
+        jniEnv->DeleteGlobalRef(m_listener);
+        for (int i = 0; i < 4; i++) {
+            jniEnv->DeleteGlobalRef(m_clickTypeValues[i]);
+        }
+    }
+    
+    bool onMapClick(ClickType clickType, float x, float y) override {
+        JniThreadBinding jniEnv(JniHelpers::getJVM());
+        // Pass the cached enum value instead of an int
+        jobject clickTypeEnum = m_clickTypeValues[(int)clickType];
+        jboolean result = jniEnv->CallBooleanMethod(m_listener, m_onMapClickMethod, clickTypeEnum, x, y);
+        return result;
+    }
+    
+private:
+    jobject m_listener;
+    jmethodID m_onMapClickMethod;
+    jobject m_clickTypeValues[4]; // Cache for SINGLE, LONG, DOUBLE, DUAL
+};
+
+// JNI wrapper for MapInteractionListener  
+class JniMapInteractionListener : public MapInteractionListener {
+public:
+    JniMapInteractionListener(JNIEnv* env, jobject listener) {
+        m_listener = env->NewGlobalRef(listener);
+        jclass listenerClass = env->GetObjectClass(listener);
+        m_onMapInteractionMethod = env->GetMethodID(listenerClass, "onMapInteraction", "(ZZZZ)Z");
+        env->DeleteLocalRef(listenerClass);
+    }
+    
+    ~JniMapInteractionListener() {
+        JniThreadBinding jniEnv(JniHelpers::getJVM());
+        jniEnv->DeleteGlobalRef(m_listener);
+    }
+    
+    bool onMapInteraction(bool isPanning, bool isZooming, bool isRotating, bool isTilting) override {
+        JniThreadBinding jniEnv(JniHelpers::getJVM());
+        jboolean result = jniEnv->CallBooleanMethod(m_listener, m_onMapInteractionMethod, 
+                                                     isPanning, isZooming, isRotating, isTilting);
+        return result;
+    }
+    
+private:
+    jobject m_listener;
+    jmethodID m_onMapInteractionMethod;
+};
+
 extern "C" {
 
 #define NATIVE_METHOD(NAME) JNIEXPORT JNICALL Java_com_mapzen_tangram_NativeMap_ ## NAME
@@ -295,6 +369,27 @@ void NATIVE_METHOD(handleRotateGesture)(JNIEnv* env, jobject obj, jfloat posX, j
 void NATIVE_METHOD(handleShoveGesture)(JNIEnv* env, jobject obj, jfloat distance) {
     auto* map = androidMapFromJava(env, obj);
     map->handleShoveGesture(distance);
+}
+
+void NATIVE_METHOD(handleTouchEvent)(JNIEnv* env, jobject obj, jint action, 
+                                     jfloat x1, jfloat y1, jfloat x2, jfloat y2) {
+    auto* map = androidMapFromJava(env, obj);
+    map->handleTouchEvent(action, x1, y1, x2, y2);
+}
+
+void NATIVE_METHOD(setDpi)(JNIEnv* env, jobject obj, jfloat dpi) {
+    auto* map = androidMapFromJava(env, obj);
+    map->setTouchGestureDpi(dpi);
+}
+
+void NATIVE_METHOD(setPanningMode)(JNIEnv* env, jobject obj, jint mode) {
+    auto* map = androidMapFromJava(env, obj);
+    map->setPanningMode(mode);
+}
+
+jint NATIVE_METHOD(getPanningMode)(JNIEnv* env, jobject obj) {
+    auto* map = androidMapFromJava(env, obj);
+    return map->getPanningMode();
 }
 
 void NATIVE_METHOD(onUrlComplete)(JNIEnv* env, jobject obj, jlong requestHandle,
@@ -596,6 +691,26 @@ void NATIVE_METHOD(setClientDataVisible)(JNIEnv* env, jobject obj, jlong javaSou
 jboolean NATIVE_METHOD(getClientDataVisible)(JNIEnv* env, jobject obj, jlong javaSourcePtr) {
     auto* source = reinterpret_cast<ClientDataSource*>(javaSourcePtr);
     return source->isVisible();
+}
+
+void NATIVE_METHOD(setMapClickListener)(JNIEnv* env, jobject obj, jobject listener) {
+    auto* map = androidMapFromJava(env, obj);
+    if (listener == nullptr) {
+        map->setMapClickListener(nullptr);
+    } else {
+        auto wrappedListener = std::make_shared<JniMapClickListener>(env, listener);
+        map->setMapClickListener(wrappedListener);
+    }
+}
+
+void NATIVE_METHOD(setMapInteractionListener)(JNIEnv* env, jobject obj, jobject listener) {
+    auto* map = androidMapFromJava(env, obj);
+    if (listener == nullptr) {
+        map->setMapInteractionListener(nullptr);
+    } else {
+        auto wrappedListener = std::make_shared<JniMapInteractionListener>(env, listener);
+        map->setMapInteractionListener(wrappedListener);
+    }
 }
 
 } // extern "C"

@@ -183,6 +183,8 @@ add_library(tangram-core
   src/util/mapProjection.h
   src/util/mapProjection.cpp
   src/util/stbImage.cpp
+  src/util/touchHandler.cpp
+  src/util/clickHandlerWorker.cpp
   src/util/url.cpp
   src/util/util.cpp
   src/util/yamlPath.h

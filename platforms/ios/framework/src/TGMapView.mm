@@ -58,6 +58,20 @@ typedef NS_ENUM(NSInteger, TGMapRegionChangeState) {
     BOOL _prevMapViewComplete;
     BOOL _viewInBackground;
     BOOL _renderRequested;
+    GLuint _colorRenderBuffer, _depthRenderBuffer, _msaaRenderBuffer;
+      GLuint _frameBuffer, _msaaFrameBuffer;
+    int width, height, samples;
+    
+    BOOL _panZoomMode;
+    NSTimer* _panZoomModeTimer;
+    CGFloat _panZoomStartZoom;
+    CGPoint _panZoomStartPoint;
+    
+    DoubleTapDragGestureRecognizer *_doubleTapDragRecognizer;
+    
+    // Touch handling state
+    UITouch *_pointer1;
+    UITouch *_pointer2;
 }
 
 @property (nullable, strong, nonatomic) EAGLContext *context;
@@ -122,6 +136,10 @@ typedef NS_ENUM(NSInteger, TGMapRegionChangeState) {
 {
     __weak TGMapView* weakSelf = self;
     _map = new Tangram::Map(std::make_unique<Tangram::iOSPlatform>(weakSelf));
+    
+    // Automatically set DPI from system
+    float dpi = [[UIScreen mainScreen] scale] * 160.0f; // iOS uses scale factor, convert to DPI (160 is baseline DPI)
+    _map->setTouchGestureDpi(dpi);
 
     NSNotificationCenter* notificationCenter = [NSNotificationCenter defaultCenter];
     [notificationCenter addObserver:self
@@ -1033,9 +1051,121 @@ std::vector<Tangram::SceneUpdate> unpackSceneUpdates(NSArray<TGSceneUpdate *> *s
     [self addGestureRecognizer:_longPressGestureRecognizer];
 }
 
-// Implement touchesBegan to catch down events
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
-    self.map->handlePanGesture(0.0f, 0.0f, 0.0f, 0.0f);
+#pragma mark - New Touch Handling
+
+- (void)setUseNewTouchHandling:(BOOL)useNewTouchHandling
+{
+    _useNewTouchHandling = useNewTouchHandling;
+}
+
+- (void)setDpi:(float)dpi
+{
+    if (self.map) {
+        self.map->setTouchGestureDpi(dpi);
+    }
+}
+
+- (void)setPanningMode:(int)mode
+{
+    if (self.map) {
+        self.map->setPanningMode(mode);
+    }
+}
+
+- (int)getPanningMode
+{
+    if (self.map) {
+        return self.map->getPanningMode();
+    }
+    return 0; // DEFAULT: FREE
+}
+
+static const int NATIVE_ACTION_POINTER_1_DOWN = 0;
+static const int NATIVE_ACTION_POINTER_2_DOWN = 1;
+static const int NATIVE_ACTION_MOVE = 2;
+static const int NATIVE_ACTION_CANCEL = 3;
+static const int NATIVE_ACTION_POINTER_1_UP = 4;
+static const int NATIVE_ACTION_POINTER_2_UP = 5;
+static const float NATIVE_NO_COORDINATE = -1.0f;
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.useNewTouchHandling) {
+        // Old behavior: cancel fling
+        self.map->handlePanGesture(0.0f, 0.0f, 0.0f, 0.0f);
+        [super touchesBegan:touches withEvent:event];
+        return;
+    }
+    
+    for (UITouch *touch in touches) {
+        CGPoint point = [touch locationInView:self];
+        if (_pointer1 == nil) {
+            _pointer1 = touch;
+            self.map->handleTouchEvent(NATIVE_ACTION_POINTER_1_DOWN, point.x, point.y, 
+                                      NATIVE_NO_COORDINATE, NATIVE_NO_COORDINATE);
+        } else if (_pointer2 == nil) {
+            _pointer2 = touch;
+            CGPoint point1 = [_pointer1 locationInView:self];
+            self.map->handleTouchEvent(NATIVE_ACTION_POINTER_2_DOWN, point1.x, point1.y,
+                                      point.x, point.y);
+        }
+    }
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.useNewTouchHandling) {
+        [super touchesMoved:touches withEvent:event];
+        return;
+    }
+    
+    if (_pointer1 != nil) {
+        CGPoint point1 = [_pointer1 locationInView:self];
+        if (_pointer2 != nil) {
+            CGPoint point2 = [_pointer2 locationInView:self];
+            self.map->handleTouchEvent(NATIVE_ACTION_MOVE, point1.x, point1.y, point2.x, point2.y);
+        } else {
+            self.map->handleTouchEvent(NATIVE_ACTION_MOVE, point1.x, point1.y, 
+                                      NATIVE_NO_COORDINATE, NATIVE_NO_COORDINATE);
+        }
+    }
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.useNewTouchHandling) {
+        [super touchesEnded:touches withEvent:event];
+        return;
+    }
+    
+    for (UITouch *touch in touches) {
+        CGPoint point = [touch locationInView:self];
+        if (touch == _pointer1 && _pointer2 == nil) {
+            self.map->handleTouchEvent(NATIVE_ACTION_POINTER_1_UP, point.x, point.y,
+                                      NATIVE_NO_COORDINATE, NATIVE_NO_COORDINATE);
+            _pointer1 = nil;
+        } else if (touch == _pointer1 && _pointer2 != nil) {
+            CGPoint point2 = [_pointer2 locationInView:self];
+            self.map->handleTouchEvent(NATIVE_ACTION_POINTER_1_UP, point.x, point.y,
+                                      point2.x, point2.y);
+            _pointer1 = _pointer2;
+            _pointer2 = nil;
+        } else if (touch == _pointer2) {
+            CGPoint point1 = [_pointer1 locationInView:self];
+            self.map->handleTouchEvent(NATIVE_ACTION_POINTER_2_UP, point1.x, point1.y,
+                                      point.x, point.y);
+            _pointer2 = nil;
+        }
+    }
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!self.useNewTouchHandling) {
+        [super touchesCancelled:touches withEvent:event];
+        return;
+    }
+    
+    self.map->handleTouchEvent(NATIVE_ACTION_CANCEL, NATIVE_NO_COORDINATE, NATIVE_NO_COORDINATE,
+                              NATIVE_NO_COORDINATE, NATIVE_NO_COORDINATE);
+    _pointer1 = nil;
+    _pointer2 = nil;
 }
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
