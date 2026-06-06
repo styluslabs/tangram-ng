@@ -4,14 +4,11 @@
 #include "util/asyncWorker.h"
 
 #include <atomic>
-#include <condition_variable>
-#include <functional>
 #include <list>
 #include <mutex>
 #include <deque>
 #include <string>
 #include <thread>
-#include <vector>
 
 #if defined(_WIN32)
 #include <winsock2.h>
@@ -27,6 +24,7 @@ public:
         uint32_t maxActiveTasks = 20;
         uint32_t connectionTimeoutMs = 3000;
         uint32_t requestTimeoutMs = 30000;
+        uint32_t maxHttpVersion = 1;
         const char* userAgentString = "tangram";
     };
 

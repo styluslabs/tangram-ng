@@ -171,6 +171,12 @@ struct UrlClient::Task {
         curl_easy_setopt(handle, CURLOPT_USERAGENT, _options.userAgentString);
         curl_easy_setopt(handle, CURLOPT_COOKIEFILE, "");  // in-memory cookie store only
         curl_easy_setopt(handle, CURLOPT_SHARE, _parent.m_curlShare);
+        if (_options.maxHttpVersion > 1) {
+            // try HTTP/2
+            if (curl_easy_setopt(handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2_0) != 0) {
+                LOGE("Error setting CURL_HTTP_VERSION_2_0!");
+            }
+        }
     }
 
     void setup() {
@@ -216,6 +222,7 @@ UrlClient::UrlClient(Options options) : m_options(options) {
     curl_share_setopt(m_curlShare, CURLSHOPT_SHARE, CURL_LOCK_DATA_COOKIE);
     curl_share_setopt(m_curlShare, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
     curl_share_setopt(m_curlShare, CURLSHOPT_SHARE, CURL_LOCK_DATA_SSL_SESSION);
+    curl_multi_setopt(m_curlHandle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
     m_curlRunning = true;
     m_curlWorker = std::make_unique<std::thread>(&UrlClient::curlLoop, this);
 
