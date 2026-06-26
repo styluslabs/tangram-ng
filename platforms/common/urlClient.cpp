@@ -177,6 +177,8 @@ struct UrlClient::Task {
                 LOGE("Error setting CURL_HTTP_VERSION_2_0!");
             }
         }
+        // building curl with CURL_CA_NATIVE option should work instead
+        //#if defined(_WIN32) curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA); #endif
     }
 
     void setup() {

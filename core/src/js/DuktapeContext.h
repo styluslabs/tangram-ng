@@ -162,8 +162,8 @@ private:
     // Used for proxy object.
     static int jsGetProperty(duk_context *_ctx);
     static int jsHasProperty(duk_context *_ctx);
-    // console.log
-    static int jsConsoleLog(duk_context *_ctx);
+    static int jsConsoleLog(duk_context *_ctx);  // console.log
+    static int jsParseColor(duk_context *_ctx);
 
     static void fatalErrorHandler(void* userData, const char* message);
 

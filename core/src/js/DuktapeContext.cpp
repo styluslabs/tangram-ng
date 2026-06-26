@@ -8,6 +8,7 @@
 #include "util/variant.h"
 
 #include "duktape/duktape.h"
+#include "csscolorparser.hpp"
 #include "glm/vec2.hpp"
 
 namespace Tangram {
@@ -29,6 +30,10 @@ DuktapeContext::DuktapeContext() {
 
     duk_push_number(_ctx, GeometryType::polygons);
     duk_put_global_string(_ctx, "polygon");
+
+    // parseColor
+    duk_push_c_function(_ctx, jsParseColor, 1);
+    duk_put_global_string(_ctx, "parseColor");
 
     // console.log
     duk_idx_t consoleObj = duk_push_object(_ctx);
@@ -187,9 +192,17 @@ void DuktapeContext::resetToScopeMarker(JSScopeMarker marker) {
 }
 
 int DuktapeContext::jsConsoleLog(duk_context *_ctx) {
-  const char* msg = duk_require_string(_ctx, 0);
-  logMsg("JS LOG %s\n", msg);
-  return 0;
+    const char* msg = duk_require_string(_ctx, 0);
+    logMsg("JS LOG %s\n", msg);
+    return 0;
+}
+
+int DuktapeContext::jsParseColor(duk_context *_ctx) {
+    const char* value = duk_require_string(_ctx, 0);
+    bool isValid = false;
+    auto cssColor = CSSColorParser::parse(value, isValid);
+    duk_push_number(_ctx, isValid ? cssColor.getInt() : 0);
+    return 1;
 }
 
 // Implements Proxy handler.has(target_object, key)
