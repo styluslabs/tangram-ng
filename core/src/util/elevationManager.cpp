@@ -328,4 +328,7 @@ ElevationManager::~ElevationManager()
   });
 }
 
+// should be called on offscreenWorker thread!
+void ElevationManager::shutdown() { m_renderState.reset(); }
+
 } // namespace Tangram
