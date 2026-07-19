@@ -6,12 +6,16 @@
 // - deflate (zip/zlib/gzip) decoder is slightly faster in valgrind; actual time is faster on Linux (0.75ms vs 1ms)
 // See tangram-es/bench/benchmark/src/timers.cc for how to get per-thread CPU time
 
+#ifndef TANGRAM_NO_WUFFS
+
 #define WUFFS_IMPLEMENTATION
 #include "wuffs.h"
 
 // stb_image fns used in nanovg but not implemented in WUFFS
 void stbi_set_unpremultiply_on_load(int flag_true_if_should_unpremultiply) {}
 void stbi_convert_iphone_png_to_rgb(int flag_true_if_should_convert) {}
+
+#endif
 
 /*
 struct Tracer {
