@@ -145,7 +145,8 @@ public:
     bool has(const char* key) const { return bool(at(key)); }
     bool has(const std::string& key) const { return has(key.c_str()); }
 
-    Node& push_back(Node&& val);
+    Node& insert(int idx, Node&& val);
+    Node& push_back(Node&& val) { return insert(INT_MAX, std::move(val)); }
     bool remove(const char* key);
     bool remove(const std::string& key) { return remove(key.c_str()); }
     bool remove(int idx);

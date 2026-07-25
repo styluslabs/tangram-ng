@@ -246,17 +246,6 @@ Node& Node::operator[](int idx) {
     return const_cast<Node&>(const_cast<const Node&>(*this)[idx]);
 }
 
-Node& Node::push_back(Node&& val) {
-    if (this != &UNDEFINED_VALUE && getTag() == Tag::UNDEFINED) { flags_ = Tag::ARRAY; }
-    if (getTag() != Tag::ARRAY) { return INVALID_VALUE; }
-    ListNode* item = new ListNode{std::move(val), nullptr, {}};
-    ListNode* array = pval_;
-    if (!array) { pval_ = item; return item->value; }
-    while (array->next) { array = array->next; }
-    array->next = item;
-    return item->value;
-}
-
 bool Node::remove(const char* key) {
     if (getTag() != Tag::OBJECT) { return false; }
 
@@ -268,6 +257,18 @@ bool Node::remove(const char* key) {
         delete std::exchange(*obj, (*obj)->next);
     }
     return bool(*obj);
+}
+
+Node& Node::insert(int idx, Node&& val) {
+    if (this != &UNDEFINED_VALUE && getTag() == Tag::UNDEFINED) { flags_ = Tag::ARRAY; }
+    if (getTag() != Tag::ARRAY) { return INVALID_VALUE; }
+    ListNode* item = new ListNode{std::move(val), nullptr, {}};
+    ListNode* array = pval_;
+    if (!array || idx == 0) { item->next = array; pval_ = item; return item->value; }
+    for (int ii = 1; ii < idx && array->next; ++ii) { array = array->next; }
+    item->next = array->next;
+    array->next = item;
+    return item->value;
 }
 
 bool Node::remove(int idx) {
@@ -1012,6 +1013,11 @@ layer2:
   assert(doc["b"].as<double>(0) == 0);
 
   assert(doc["z"].as<bool>(false) == true);
+
+  doc["layer2"][3].insert(0, "first item");
+  doc["layer2"][3].remove(1);
+  doc["layer2"][3].push_back("fourth item");
+  doc["layer2"][3].insert(2, "third item");
 
   YAML::Writer writer;
   writer.indent = 4;
