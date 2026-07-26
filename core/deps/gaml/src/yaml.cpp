@@ -271,6 +271,8 @@ Node& Node::insert(int idx, Node&& val) {
     return item->value;
 }
 
+Node& Node::push_back(Node&& val) { return insert(INT_MAX, std::move(val)); }
+
 bool Node::remove(int idx) {
     if (getTag() != Tag::ARRAY || !pval_) { return false; }
     if (idx == 0) {

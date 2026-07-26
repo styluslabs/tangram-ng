@@ -7,6 +7,8 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.SocketFactory;
@@ -22,6 +24,8 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import okhttp3.JavaNetCookieJar;
+import okhttp3.OkHttpClient;
 
 /**
  * {@code DefaultHttpHandler} is an implementation of {@link HttpHandler} using OkHTTP.
@@ -36,9 +40,13 @@ public class DefaultHttpHandler implements HttpHandler {
      * @return OkHttp client builder with recommended settings for Tangram.
      */
     public static OkHttpClient.Builder getClientBuilder() {
+        CookieManager cookieManager = new CookieManager();
+        cookieManager.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
+
         return new OkHttpClient.Builder()
                 .followRedirects(true)
                 .followSslRedirects(true)
+                .cookieJar(new JavaNetCookieJar(cookieManager))
                 .socketFactory(new CustomSocketFactory())
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .writeTimeout(10, TimeUnit.SECONDS)
