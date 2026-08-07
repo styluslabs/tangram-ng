@@ -6,6 +6,9 @@
 #include "data/networkDataSource.h"
 #include "data/rasterSource.h"
 #include "data/tileSource.h"
+#ifdef TANGRAM_PMTILES_DATASOURCE
+#include "data/pmtilesDataSource.h"
+#endif
 #include "gl/shaderSource.h"
 #include "gl/texture.h"
 #include "log.h"
@@ -769,6 +772,7 @@ std::shared_ptr<TileSource> SceneLoader::loadSource(const Node& _source, const s
 
     bool isTiled = url.empty() || NetworkDataSource::urlHasTilePattern(url);
     bool isMBTilesFile = Url::getPathExtension(url) == "mbtiles";
+    bool isPMTilesFile = Url::getPathExtension(url) == "pmtiles";
     if (isMBTilesFile) {
 #ifdef TANGRAM_MBTILES_DATASOURCE
         // If we have MBTiles, we know the source is tiled.
@@ -777,6 +781,17 @@ std::shared_ptr<TileSource> SceneLoader::loadSource(const Node& _source, const s
         rawSources = std::make_unique<MBTilesDataSource>(_context.getPlatform(), _name, url, "");
 #else
         LOGE("MBTiles support is disabled. This source will be ignored: %s", _name.c_str());
+        return nullptr;
+#endif
+    } else if (isPMTilesFile) {
+#ifdef TANGRAM_PMTILES_DATASOURCE
+        // PMTiles is always tiled
+        isTiled = true;
+        // Create a PMTiles data source (supports both local files and HTTP)
+        rawSources = std::make_unique<PMTilesDataSource>(_context.getPlatform(), url);
+        LOGD("Created PMTiles data source for: %s", url.c_str());
+#else
+        LOGE("PMTiles support is disabled. This source will be ignored: %s", _name.c_str());
         return nullptr;
 #endif
     } else if (isTiled) {
