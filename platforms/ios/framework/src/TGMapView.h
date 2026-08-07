@@ -438,6 +438,35 @@ TG_EXPORT
  */
 @property (strong, nonatomic) UILongPressGestureRecognizer* longPressGestureRecognizer;
 
+/**
+ Enable new touch handling system (similar to Carto Mobile SDK).
+ This provides more consistent cross-platform touch handling.
+ When enabled, gesture recognizers are disabled and raw touch events are used.
+ Default is NO (uses gesture recognizers).
+ */
+@property (assign, nonatomic) BOOL useNewTouchHandling;
+
+/**
+ Set DPI for touch gesture calculations (affects gesture detection thresholds)
+ This is automatically set based on the screen's scale, but can be overridden if needed.
+ */
+- (void)setDpi:(float)dpi;
+
+/**
+ Set panning mode for dual-finger gestures when using new touch handling
+ @param mode The panning mode: 0 = FREE, 1 = STICKY, 2 = STICKY_FINAL
+ FREE (0): Allows simultaneous rotation and scaling (default)
+ STICKY (1): Separates rotate and scale gestures, allows switching during touch
+ STICKY_FINAL (2): Locks to first detected gesture until fingers lift
+ */
+- (void)setPanningMode:(int)mode;
+
+/**
+ Get the current panning mode for dual-finger gestures
+ @return The panning mode: 0 = FREE, 1 = STICKY, 2 = STICKY_FINAL
+ */
+- (int)getPanningMode;
+
 #pragma mark Map region change state notifiers
 
 /**
