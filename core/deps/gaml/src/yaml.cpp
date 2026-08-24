@@ -633,11 +633,9 @@ ParseResult parseTo(const char *s, size_t len, Node *valueout, int flags) {
                     ++linenum;
                     continue;
                 }
-                if (s == ends) { break; }
-                if (isspace(*s) && (++s) - linestart < blockindent) { continue; }
-
+                if (isspace(*s) && (++s, !linestart || s - linestart < blockindent)) { continue; }
                 if (!linestart) { return {Error::BAD_STRING, linenum, s}; }
-                if (s - linestart <= indent) { break; }
+                if (s >= ends || s - linestart <= indent) { break; }
 
                 if (blockindent == INT_MAX) { blockindent = s - linestart; }
                 else if (s - linestart < blockindent) { return {Error::BAD_STRING, linenum, s}; }
@@ -650,7 +648,8 @@ ParseResult parseTo(const char *s, size_t len, Node *valueout, int flags) {
                 linestart = nullptr;
             }
 
-            if (chomp == '-') {
+            if (temp.empty()) {  // handle empty block
+            } else if (chomp == '-') {
                 temp.pop_back();
             } else if (chomp != '+') {
                 while (temp.back() == '\n') { temp.pop_back(); }
@@ -958,6 +957,28 @@ layer2:
                     u_float: 0.25
 )END";
 
+  static const char* blocks = R"(# comment
+pyblock: |+
+  def pyfn(x, y, z=10):
+    p = x+y
+    return p*z
+
+  def pyfn2(r):
+    return r*r
+jsonblock: |-
+  {"raw": "json", "not": "parsed"}
+notablock: 5
+emptyblock: |
+nested:
+  block: |
+    function fn(x,y) {
+      return x+y;
+    }
+alsonotablock: something
+)";
+
+  static const char* crlfblocks = "block1: |\r\n  Line 1\r\n  Line 2\r\n  Line 3\r\nblock2: |-\r\n  Line 4\r\n  \r\n  Line 6\r\n";
+
   YAML::Node doc = YAML::parse(yaml);
 
   doc.merge({
@@ -1020,6 +1041,10 @@ layer2:
   doc["layer2"][3].remove(1);
   doc["layer2"][3].push_back("fourth item");
   doc["layer2"][3].insert(2, "third item");
+
+  doc["blocks"] = YAML::parse(blocks);
+
+  doc["crlfblocks"] = YAML::parse(crlfblocks);
 
   YAML::Writer writer;
   writer.indent = 4;
