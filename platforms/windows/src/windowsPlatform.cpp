@@ -2,6 +2,7 @@
 #include "gl/hardware.h"
 #include "log.h"
 #include <stdio.h>
+#include <windows.h>
 
 //#include <GLFW/glfw3.h>
 

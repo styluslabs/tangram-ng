@@ -22,92 +22,6 @@ struct CurlGlobals {
     }
 } s_curl;
 
-UrlClient::SelfPipe::~SelfPipe() {
-#if defined(_WIN32)
-    if(pipeFds[0] != SocketInvalid) {
-        closesocket(pipeFds[0]);
-    }
-    if(pipeFds[1] != SocketInvalid) {
-        closesocket(pipeFds[1]);
-    }
-#endif
-}
-
-bool  UrlClient::SelfPipe::initialize() {
-#if defined(_WIN32)
-    // https://stackoverflow.com/questions/3333361/how-to-cancel-waiting-in-select-on-windows
-    struct sockaddr_in inaddr;
-    int len = sizeof(inaddr);
-    memset(&inaddr, 0, len);
-    struct sockaddr addr;
-    memset(&addr, 0, sizeof(addr));
-
-    inaddr.sin_family = AF_INET;
-    inaddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    inaddr.sin_port = 0;
-    int yes = 1;
-    SOCKET lst = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if(lst == INVALID_SOCKET) {
-        return false;
-    }
-    if(
-        setsockopt(lst, SOL_SOCKET, SO_REUSEADDR, (char*)&yes, sizeof(yes)) == SOCKET_ERROR ||
-        bind(lst, (struct sockaddr *)&inaddr, sizeof(inaddr)) == SOCKET_ERROR ||
-        listen(lst, 1) == SOCKET_ERROR ||
-        getsockname(lst, &addr, &len) ||
-        (pipeFds[0] = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET
-    ) {
-        closesocket(lst);
-        return false;
-    }
-
-    if(
-        (connect(pipeFds[0], &addr, len)) == SOCKET_ERROR ||
-        (pipeFds[1] = accept(lst, 0, 0)) == INVALID_SOCKET
-    ) {
-        closesocket(pipeFds[0]);
-        closesocket(lst);
-        pipeFds[0] = -1;
-        return false;
-    }
-
-    closesocket(lst);
-    return true;
-#else
-    return pipe(pipeFds) >= 0;
-#endif
-}
-
-bool UrlClient::SelfPipe::write() {
-#if defined(_WIN32)
-    return send(pipeFds[1], "\0", 1, 0) >= 0;
-#else
-    return ::write(pipeFds[1], "\0", 1) >= 0;
-#endif
-}
-
-bool UrlClient::SelfPipe::read(int *error) {
-    char buffer[1];
-#if defined(_WIN32)
-    int n = recv(pipeFds[0], buffer, sizeof(buffer), 0);
-    if(n == SOCKET_ERROR) {
-        *error = WSAGetLastError();
-        return false;
-    }
-#else
-    int n = ::read(pipeFds[0], buffer, sizeof(buffer));
-    if (n <= 0) {
-        *error = n;
-        return false;
-    }
-#endif
-    return true;
-}
-
-UrlClient::SelfPipe::Socket UrlClient::SelfPipe::getReadFd() {
-    return pipeFds[0];
-}
-
 struct UrlClient::Task {
     // Reduce Task content capacity when it's more than 128kb and last
     // content size was less then half limit_capacity.
@@ -212,11 +126,6 @@ struct UrlClient::Task {
 
 
 UrlClient::UrlClient(Options options) : m_options(options) {
-    // Using a pipe to notify select() in curl-thread of new requests..
-    // https://www.linuxquestions.org/questions/programming-9/exit-from-blocked-pselect-661200/
-    if (!m_requestNotify.initialize()) {
-        LOGE("Could not initialize select breaker!");
-    }
 
     // Start the curl thread
     m_curlHandle = curl_multi_init();
@@ -259,14 +168,7 @@ UrlClient::~UrlClient() {
 
 void UrlClient::curlWakeUp() {
 
-    if (!m_curlNotified) {
-        if (!m_requestNotify.write()) {
-            // err
-            return;
-        }
-        //LOG("wake up!");
-        m_curlNotified = true;
-    }
+    curl_multi_wakeup(m_curlHandle);
 }
 
 UrlClient::RequestId UrlClient::addRequest(const std::string& _url, const HttpOptions& _options, UrlCallback _onComplete) {
@@ -402,74 +304,19 @@ void UrlClient::curlLoop() {
     // Loop until the session is destroyed.
     while (m_curlRunning) {
 
-        fd_set fdread, fdwrite, fdexcep;
-        FD_ZERO(&fdread);
-        FD_ZERO(&fdwrite);
-        FD_ZERO(&fdexcep);
-
-        // 100ms select() default timeout
-        struct timeval timeout{0, 100 * 1000};
-
-        int maxfd = -1;
-        long curl_timeo = -1;
-        curl_multi_timeout(m_curlHandle, &curl_timeo);
-
-        if (curl_timeo >= 0) {
-            timeout.tv_usec = 0;
-            timeout.tv_sec = curl_timeo / 1000;
-            if (timeout.tv_sec > 1) {
-                timeout.tv_sec = 1;
-            } else {
-                timeout.tv_usec = (curl_timeo % 1000) * 1000;
-            }
-            if (timeout.tv_sec > 0) {
-                timeout.tv_sec = 0;
-            } else {
-                timeout.tv_usec = (curl_timeo % 1000) * 1000;
-            }
-            //printf ("Timeout %ld.%06ld\n", timeout.tv_sec, timeout.tv_usec);
-        }
-
-        // Get file descriptors from the transfers
-        CURLMcode mc = curl_multi_fdset(m_curlHandle, &fdread, &fdwrite, &fdexcep,
-                                        &maxfd);
+        // Wait for socket activity, curl_multi_wakeup() (due to new request), internal timeout, or 1000 ms
+        int numfds = 0;
+        CURLMcode mc = curl_multi_poll(m_curlHandle, NULL, 0, 1000, &numfds);
         if (mc != CURLM_OK) {
-            LOGE("curl_multi_fdset() failed, code %d.", mc);
+            LOGE("curl_multi_poll() failed, code %d.", mc);
             continue;
         }
 
-        // Listen on requestNotify to break select when new requests are added.
-        FD_SET(m_requestNotify.getReadFd(), &fdread);
+        // Create tasks from request queue
+        startPendingRequests();
 
-        // Wait for transfers
-        // On success the value of maxfd is guaranteed to be >= -1. We call
-        // select(maxfd + 1, ...); specially in case of (maxfd == -1) there are
-        // no fds ready yet so we call select(0, ...) to sleep 100ms, which is
-        // the minimum suggested value in the curl_multi_fdset() doc.
-        int ready = select(maxfd + 2, &fdread, &fdwrite, &fdexcep, &timeout);
-
-        if (ready == -1) {
-            LOGE("select() error!");
-            continue;
-
-        } else {
-            if (FD_ISSET(m_requestNotify.getReadFd(), &fdread)) {
-                // Clear notify fd
-                int error;
-                if(!m_requestNotify.read(&error)) {
-                    LOGE("Read request notify %d", error);
-                }
-                //LOG("Got request notifies %d %d", n, m_curlNotified);
-                m_curlNotified = false;
-            }
-
-            // Create tasks from request queue
-            startPendingRequests();
-
-            //
-            int activeRequests = 0;
-            curl_multi_perform(m_curlHandle, &activeRequests);
-        }
+        int activeRequests = 0;
+        curl_multi_perform(m_curlHandle, &activeRequests);
 
         while (true) {
             // how many messages are left

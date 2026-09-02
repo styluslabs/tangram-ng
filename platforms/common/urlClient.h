@@ -10,10 +10,6 @@
 #include <string>
 #include <thread>
 
-#if defined(_WIN32)
-#include <winsock2.h>
-#endif
-
 namespace Tangram {
 
 class UrlClient {
@@ -47,24 +43,6 @@ private:
         RequestId id;
     };
 
-    class SelfPipe {
-    public:
-#if defined(_WIN32)
-        using Socket = SOCKET;
-        const Socket SocketInvalid = INVALID_SOCKET;
-#else
-        using Socket = int;
-        const Socket SocketInvalid = -1;
-#endif
-        ~SelfPipe();
-        bool initialize();
-        bool write();
-        bool read(int *error);
-        Socket getReadFd();
-    private:
-        Socket pipeFds[2] = { SocketInvalid, SocketInvalid };
-    };
-
     struct Task;
 
     void curlLoop();
@@ -79,7 +57,6 @@ private:
     void* m_curlShare = nullptr;
 
     bool m_curlRunning = false;
-    bool m_curlNotified = false;
 
     std::unique_ptr<std::thread> m_curlWorker;
     AsyncWorker m_dispatcher = {"UrlClient dispatcher"};
@@ -94,9 +71,6 @@ private:
 
     // RequestIds
     std::atomic<uint64_t> m_requestCount{0};
-
-    // File descriptors to break waiting select.
-    SelfPipe m_requestNotify;
 };
 
 } // namespace Tangram
