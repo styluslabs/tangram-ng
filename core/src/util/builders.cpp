@@ -64,7 +64,7 @@ void Builders::buildPolygon(const Polygon& _polygon, float _height, PolygonBuild
     glm::vec2 min, max;
     if (_ctx.useTexCoords) {
         min = glm::vec2(std::numeric_limits<float>::max());
-        max = glm::vec2(std::numeric_limits<float>::min());
+        max = glm::vec2(std::numeric_limits<float>::lowest());
 
         for (auto& p : _polygon[0]) {
             min.x = std::min(min.x, p.x);
