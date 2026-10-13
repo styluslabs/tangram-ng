@@ -103,6 +103,7 @@ protected:
     static bool zOrderComparator(const LabelEntry& _a, const LabelEntry& _b);
 
     std::vector<OBB> m_obbs;
+    std::vector<Label*> m_obbLabels;  // label owning each obb inserted into m_isect2d
     ScreenTransform::Buffer m_transforms;
 
     std::vector<LabelEntry> m_labels;

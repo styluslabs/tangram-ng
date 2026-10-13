@@ -418,19 +418,6 @@ void LabelManager::handleOcclusions(const ViewState& _viewState, bool _hideExtra
     m_isect2d.clear();
     m_repeatGroups.clear();
 
-    using iterator = decltype(m_labels)::const_iterator;
-
-    // Find the label to which the obb belongs
-    auto findLabel = [](iterator begin, iterator end, int obb) {
-        for (auto it = begin; it != end; it++) {
-            if (obb >= it->obbsRange.start && obb < it->obbsRange.end()) {
-                return it->label;
-            }
-        }
-        assert(false);
-        return static_cast<Label*>(nullptr);
-    };
-
     for (auto it = m_labels.begin(); it != m_labels.end(); ++it) {
         auto& entry = *it;
         auto* l = entry.label;
@@ -501,7 +488,7 @@ void LabelManager::handleOcclusions(const ViewState& _viewState, bool _hideExtra
                             return true;
                         }
                         // Ignore intersection with relative label
-                        Label* other_label = findLabel(std::begin(m_labels), it, other);
+                        Label* other_label = m_obbLabels[other];
                         if (l->relative() && l->relative() == other_label) {
                             return true;
                         }
@@ -532,8 +519,10 @@ void LabelManager::handleOcclusions(const ViewState& _viewState, bool _hideExtra
         } else {
             // Insert into ISect2D grid
             int obbPos = entry.obbsRange.start;
+            m_obbLabels.resize(m_obbs.size());  // m_obbs grows as we go
             for (auto& obb : obbs) {
                 auto aabb = obb.getExtent();
+                m_obbLabels[obbPos] = l;
                 aabb.m_userData = reinterpret_cast<void*>(obbPos++);
                 m_isect2d.insert(aabb);
             }
