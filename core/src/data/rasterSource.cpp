@@ -141,21 +141,16 @@ std::shared_ptr<TileData> RasterSource::parse(const TileTask& _task) const {
     return nullptr;
 }
 
-void RasterSource::addRasterTask(TileTask& _task) {
-
-    TileID subTileID = _task.tileId();
-
+TileID RasterSource::subTaskTileID(const TileSource& _src, TileID _tile) const {
     // apply apt downsampling for raster tiles depending on difference
     // in zoomBias (which also takes zoom offset into account)
-    auto zoomDiff = m_zoomOptions.zoomBias - _task.source()->zoomBias();
+    auto zoomDiff = m_zoomOptions.zoomBias - _src.zoomBias();
+    if (zoomDiff > 0) { _tile = _tile.zoomBiasAdjusted(zoomDiff); }
+    return _tile.withMaxSourceZoom(m_zoomOptions.maxZoom);
+}
 
-    if (zoomDiff > 0) {
-        subTileID = subTileID.zoomBiasAdjusted(zoomDiff).withMaxSourceZoom(m_zoomOptions.maxZoom);
-    } else {
-        subTileID = subTileID.withMaxSourceZoom(m_zoomOptions.maxZoom);
-    }
-
-    auto rasterTask = createRasterTask(subTileID, true);
+void RasterSource::addRasterTask(TileTask& _task) {
+    auto rasterTask = createRasterTask(subTaskTileID(*_task.source(), _task.tileId()), true);
 
     _task.subTasks().push_back(rasterTask);
 }

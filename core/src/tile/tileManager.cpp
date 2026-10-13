@@ -459,18 +459,27 @@ void TileManager::updateTileSet(TileSet& _tileSet, const ViewState& _view) {
                     size_t offset = rasters.size() - srcs.size();
                     entry.numMissingRasters = 0;
                     for (size_t ii = 0; ii < srcs.size(); ++ii) {
-                        if (rasters[ii+offset].texture != srcs[ii]->emptyTexture()) { continue; }
+                        auto& raster = rasters[ii+offset];
+                        TileID want = srcs[ii]->subTaskTileID(*_tileSet.source, tileId);
+                        bool missing = raster.texture == srcs[ii]->emptyTexture();
+                        if (!missing && raster.tileID.z >= want.z) { continue; }
+                        // keep checking for exact raster while using proxy (e.g. if loaded by another tile set)
+                        if (auto exact = srcs[ii]->getTexture(TileID(want.x, want.y, want.z))) {
+                            raster.tileID = TileID(want.x, want.y, want.z, tileId.s);
+                            raster.texture = exact;
+                            continue;
+                        }
                         ++entry.numMissingRasters;
-                        TileID id(tileId.x, tileId.y, tileId.z);
+                        if (!missing) { continue; }
+                        TileID id(want.x, want.y, want.z);
                         do {
                             id = id.getParent();
                             auto proxy = srcs[ii]->getTexture(id);
                             if (proxy) {
-                                rasters[ii+offset].tileID = TileID(id.x, id.y, id.z, tileId.s);
-                                rasters[ii+offset].texture = proxy;
+                                raster.tileID = TileID(id.x, id.y, id.z, tileId.s);
+                                raster.texture = proxy;
                                 LOGD("Found proxy %s for missing '%s' subtask raster '%s' %s", id.toString().c_str(),
                                      _tileSet.source->name().c_str(), srcs[ii]->name().c_str(), tileId.toString().c_str());
-                                --entry.numMissingRasters;
                                 break;
                             }
                         } while (id.z > 13 || (id.z > 0 && id.z + 2 >= tileId.z));

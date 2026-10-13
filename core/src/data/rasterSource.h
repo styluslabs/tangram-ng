@@ -51,6 +51,9 @@ public:
 
     std::shared_ptr<Texture> getTexture(TileID _tile);
 
+    // raster tile used for subtask of tile _tile from source _src
+    TileID subTaskTileID(const TileSource& _src, TileID _tile) const;
+
     Raster getRaster(ProjectedMeters _meters);
 
     std::shared_ptr<TileTask> createTask(TileID _tile) override;
