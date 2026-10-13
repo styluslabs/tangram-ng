@@ -193,14 +193,17 @@ public:
   SQLiteDB(sqlite3* _db = NULL) : db(_db) {}
   SQLiteDB(const SQLiteDB&) = delete;
   SQLiteDB(SQLiteDB&& other) : db(std::exchange(other.db, nullptr)) {}
-  ~SQLiteDB() {
-    if(!db) return;
+  ~SQLiteDB() { close(); }
+
+  void close() {
+    if(!db) { return; }
 #ifndef NDEBUG  // sqlite FTS, e.g., leaves around some unfinalized statements that we can't do anything about
     sqlite3_stmt* stmt = NULL;
     while((stmt = sqlite3_next_stmt(db, stmt)))
       SQLITEPP_LOGW("SQLite statement was not finalized: %s", sqlite3_sql(stmt));
 #endif
     sqlite3_close(db);
+    db = NULL;
   }
 
   int open(const std::string& file, int mode, const char* vfs = NULL)
