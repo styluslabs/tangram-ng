@@ -95,11 +95,14 @@ SQLITE_BASE := $(MODULE_BASE)
 SQLITE_GEN := $(SQLITE_BASE)/sqlite3.h $(SQLITE_BASE)/sqlite3.c
 GENERATED += $(SQLITE_GEN)
 
+# only a single target should invoke download to prevent multiple downloads with parallel make
+$(SQLITE_BASE)/sqlite3.h: $(SQLITE_BASE)/sqlite3.c
+
 ifneq ($(windir),)
-$(SQLITE_GEN):
+$(SQLITE_BASE)/sqlite3.c:
 	cd $(SQLITE_BASE) && curl "https://www.sqlite.org/2020/sqlite-amalgamation-3320300.zip" -o sqlite.zip && tar -xf sqlite.zip && move sqlite-amalgamation-3320300\sqlite3.* .
 else
-$(SQLITE_GEN):
+$(SQLITE_BASE)/sqlite3.c:
 	cd $(SQLITE_BASE) && curl "https://www.sqlite.org/2020/sqlite-amalgamation-3320300.zip" -o sqlite.zip && unzip sqlite.zip && mv sqlite-amalgamation-3320300/sqlite3.* .
 endif
 
