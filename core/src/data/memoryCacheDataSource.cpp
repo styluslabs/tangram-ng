@@ -22,12 +22,12 @@ struct RawCache {
 
     CacheMap m_cacheMap;
     CacheList m_cacheList;
-    int m_usage = 0;
-    int m_maxUsage = 0;
+    size_t m_usage = 0;
+    size_t m_maxUsage = 0;
 
     bool get(BinaryTileTask& _task) {
 
-        if (m_maxUsage <= 0) { return false; }
+        if (m_maxUsage == 0) { return false; }
 
         std::lock_guard<std::mutex> lock(m_mutex);
         const auto& taskTileID = _task.tileId();
@@ -46,7 +46,7 @@ struct RawCache {
     }
     void put(const TileID& tileID, std::shared_ptr<std::vector<char>> rawDataRef) {
 
-        if (m_maxUsage <= 0) { return; }
+        if (m_maxUsage == 0) { return; }
 
         std::lock_guard<std::mutex> lock(m_mutex);
         TileID id(tileID.x, tileID.y, tileID.z);
