@@ -9,13 +9,16 @@
 #include "util/geom.h"
 #include "util/imageLoader.h"
 
+#include <atomic>
 #include <cassert>
 #include <cstring> // for memset
 
 namespace Tangram {
 
+static std::atomic<uint32_t> s_textureSerial{0};
+
 Texture::Texture(TextureOptions _options, bool _disposeBuffer)
-    : m_options(_options), m_disposeBuffer(_disposeBuffer) {}
+    : m_options(_options), m_disposeBuffer(_disposeBuffer), m_serial(++s_textureSerial) {}
 
 Texture::Texture(const uint8_t* data, size_t length, TextureOptions options, bool _disposeBuffer)
     : Texture(options, _disposeBuffer) {

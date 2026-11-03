@@ -379,13 +379,15 @@ bool LabelManager::priorityComparator(const LabelEntry& _a, const LabelEntry& _b
         return l1->hash() < l2->hash();
     }
 
-    return l1 < l2;  // if all else fails, order by memory address!
+    // exact tie: updateLabelSet() uses stable_sort, so ties keep the order updateLabels() added them in (the
+    //  same in every run, unlike the memory addresses compared before)
+    return false;
 }
 
 bool LabelManager::zOrderComparator(const LabelEntry& _a, const LabelEntry& _b) {
 
     if (_a.style != _b.style) {
-        return _a.style < _b.style;
+        return _a.style->getID() < _b.style->getID();
     }
 
     if (_a.marker && _b.marker) {
@@ -395,8 +397,11 @@ bool LabelManager::zOrderComparator(const LabelEntry& _a, const LabelEntry& _b) 
     }
 
     // Sort by texture to reduce draw calls (increase batching)
-    if (_a.label->texture() != _b.label->texture()) {
-        return _a.label->texture() < _b.label->texture();
+    // (only grouping matters for batching; compare serials, not pointers, for a fixed order between textures)
+    const Texture* ta = _a.label->texture();
+    const Texture* tb = _b.label->texture();
+    if (ta != tb) {
+        return (ta ? ta->serial() : 0) < (tb ? tb->serial() : 0);
     }
 
     // Sort Markers by id
@@ -404,13 +409,8 @@ bool LabelManager::zOrderComparator(const LabelEntry& _a, const LabelEntry& _b) 
         return _a.marker->id() < _b.marker->id();
     }
 
-    // Just keep tile label order consistent
-    if (_a.tile && _b.tile) {
-        return _a.label < _b.label;
-    }
-
-    // Add tile labels before markers
-    return bool(_a.tile);
+    // Add tile labels before markers; tile labels otherwise tie (stable_sort keeps their priority order)
+    return _a.tile && !_b.tile;
 }
 
 void LabelManager::handleOcclusions(const ViewState& _viewState, bool _hideExtraLabels) {
@@ -562,7 +562,8 @@ void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _sc
     updateLabels(_viewState, _dt, _scene, _tiles, _markers, _onlyRender);
     if (_onlyRender) { return; }
 
-    std::sort(m_labels.begin(), m_labels.end(), LabelManager::priorityComparator);
+    // stable: labels that tie keep the order they were added in, the same in every run
+    std::stable_sort(m_labels.begin(), m_labels.end(), LabelManager::priorityComparator);
 
     /// Mark labels to skip transitions
 
@@ -583,7 +584,8 @@ void LabelManager::updateLabelSet(const View& _view, float _dt, const Scene& _sc
         m_needUpdate |= entry.label->evalState(_dt);
     }
 
-    std::sort(m_labels.begin(), m_labels.end(), LabelManager::zOrderComparator);
+    // stable: labels that tie keep their priority order
+    std::stable_sort(m_labels.begin(), m_labels.end(), LabelManager::zOrderComparator);
 
     Label::AABB screenBounds{0, 0, _viewState.viewportSize.x, _viewState.viewportSize.y};
 

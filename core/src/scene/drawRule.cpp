@@ -34,14 +34,14 @@ std::string DrawRuleData::toString() const {
     return str;
 }
 
-DrawRule::DrawRule(const DrawRuleData& ruleData, const std::string& layerName, int layerDepth) :
+DrawRule::DrawRule(const DrawRuleData& ruleData, const char* layerName, int layerDepth) :
     name(&ruleData.name),
     id(ruleData.id) {
 
     for (const auto& param : ruleData.parameters) {
         auto key = static_cast<uint8_t>(param.key);
         active[key] = true;
-        params[key] = { &param, layerName.c_str(), layerDepth };
+        params[key] = { &param, layerName, layerDepth };
     }
 }
 
@@ -53,7 +53,7 @@ bool DrawRule::hasParameterSet(StyleParamKey _key) const {
     return false;
 }
 
-void DrawRule::merge(const DrawRuleData& ruleData, const std::string& layerName, int layerDepth) {
+void DrawRule::merge(const DrawRuleData& ruleData, const char* layerName, int layerDepth) {
 
     for (const auto& paramNew : ruleData.parameters) {
 
@@ -61,7 +61,7 @@ void DrawRule::merge(const DrawRuleData& ruleData, const std::string& layerName,
         auto& param = params[key];
 
         if (!active[key] || layerDepth > param.layerDepth) {
-            param = { &paramNew, layerName.c_str(), layerDepth };
+            param = { &paramNew, layerName, layerDepth };
             active[key] = true;
         }
     }
@@ -91,9 +91,12 @@ const std::string& DrawRule::getStyleName() const {
 }
 
 size_t DrawRule::getParamSetHash() const {
+    // hash layer names by content, not address, so the result (used as default repeat group, which affects
+    //  label order) is the same in every run
     size_t seed = 0;
     for (size_t i = 0; i < StyleParamKeySize; i++) {
-        if (active[i]) { hash_combine(seed, params[i].layerName); }
+        // not hash_combine(seed, params[i].layerName), which would hash the pointer
+        if (active[i]) { hash_combine(seed, hash_cstr(params[i].layerName)); }
     }
     return seed;
 }
@@ -206,9 +209,9 @@ void DrawRuleMergeSet::mergeRules(const SceneLayer& layer, int depth) {
         }
 
         if (pos == end) {
-            m_matchedRules.emplace_back(rule, layer.name(), depth);
+            m_matchedRules.emplace_back(rule, layer.name().c_str(), depth);
         } else {
-            m_matchedRules[pos].merge(rule, layer.name(), depth);
+            m_matchedRules[pos].merge(rule, layer.name().c_str(), depth);
         }
     }
 }

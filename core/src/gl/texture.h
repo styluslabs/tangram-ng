@@ -102,6 +102,9 @@ public:
     const auto& spriteAtlas() const { return m_spriteAtlas; }
     void setSpriteAtlas(std::unique_ptr<SpriteAtlas> sprites);
 
+    // creation order, for deterministic sorting (e.g. label draw order) instead of comparing pointers
+    uint32_t serial() const { return m_serial; }
+
     // Resize the texture
     void resize(int width, int height);
 
@@ -146,6 +149,7 @@ protected:
 private:
 
     std::unique_ptr<SpriteAtlas> m_spriteAtlas;
+    uint32_t m_serial;
 
 };
 

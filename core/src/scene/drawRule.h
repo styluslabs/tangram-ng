@@ -59,7 +59,8 @@ struct DrawRule {
     // Function/Stops in DrawRuleMergeset.
     struct {
         const StyleParam* param;
-        // SceneLayer name and depth
+        // SceneLayer name (full path, e.g. "roads:major", so unique per layer; points into SceneLayer or a
+        //  string literal) and depth
         const char* layerName;
         int layerDepth;
     } params[StyleParamKeySize];
@@ -78,9 +79,10 @@ struct DrawRule {
     uint32_t selectionColor = 0;
     FeatureSelection* featureSelection = nullptr;
 
-    DrawRule(const DrawRuleData& ruleData, const std::string& layerName, int layerDepth);
+    // layerName must outlive the DrawRule (a SceneLayer name or a string literal; not a temporary std::string)
+    DrawRule(const DrawRuleData& ruleData, const char* layerName, int layerDepth);
 
-    void merge(const DrawRuleData& ruleData, const std::string& layerName, int layerDepth);
+    void merge(const DrawRuleData& ruleData, const char* layerName, int layerDepth);
 
     bool contains(StyleParamKey _key) const;
 
