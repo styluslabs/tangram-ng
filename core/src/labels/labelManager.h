@@ -46,6 +46,9 @@ public:
 
     std::pair<Label*, const Tile*> getLabel(uint32_t _selectionColor) const;
 
+    // number of label entries from the last updateLabelSet()
+    size_t numLabels() const { return m_labels.size(); }
+
 protected:
 
     using AABB = isect2d::AABB<glm::vec2>;

@@ -53,6 +53,10 @@ public:
     int numLoadingTiles() const { return m_tilesInProgress; }
     int numTotalTiles() const;
 
+    /* True if any dispatched tile or raster task is still being fetched or built off the main thread.
+     * Main thread only; used by the benchmark replay to wait for loading without running frames. */
+    bool tasksInFlight() const;
+
     std::shared_ptr<TileSource> getTileSource(int32_t _sourceId);
 
     void addClientTileSource(std::shared_ptr<TileSource> _source);

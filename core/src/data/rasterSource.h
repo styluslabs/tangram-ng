@@ -51,6 +51,9 @@ public:
 
     std::shared_ptr<Texture> getTexture(TileID _tile);
 
+    // number of live cached textures and their memory: GPU size plus heap copy if retained (main thread)
+    size_t cacheMemoryUsage(size_t* _count = nullptr) const;
+
     // raster tile used for subtask of tile _tile from source _src
     TileID subTaskTileID(const TileSource& _src, TileID _tile) const;
 

@@ -217,6 +217,19 @@ std::shared_ptr<Texture> RasterSource::getTexture(TileID _tile) {
     return texIt != m_textures->end() ? texIt->second.lock() : nullptr;
 }
 
+size_t RasterSource::cacheMemoryUsage(size_t* _count) const {
+    size_t ntex = 0, bytes = 0;
+    for (auto& kv : *m_textures) {
+        auto tex = kv.second.lock();
+        if (!tex) { continue; }
+        ++ntex;
+        bytes += tex->bufferSize();  // GL memory
+        if (tex->bufferData()) { bytes += tex->bufferSize(); }  // heap memory
+    }
+    if (_count) { *_count = ntex; }
+    return bytes;
+}
+
 Raster RasterSource::getRaster(ProjectedMeters _meters) {
     if (m_textures->empty()) { return Raster(NOT_A_TILE, nullptr); }
 

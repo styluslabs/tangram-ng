@@ -628,6 +628,27 @@ void TileManager::setCacheSize(size_t _cacheSize) {
     }
 }
 
+bool TileManager::tasksInFlight() const {
+    // a task is in flight once loadTiles() has dispatched it (shareCount > 0) and data loading has
+    //  started (!needsLoading()), until it is ready or canceled
+    auto inFlight = [](const TileTask& t) {
+        return !t.isCanceled() && !t.needsLoading() && !t.isReady();
+    };
+    for (auto* sets : {&m_tileSets, &m_auxTileSets}) {
+        for (auto& ts : *sets) {
+            for (auto& kv : ts.tiles) {
+                auto& task = kv.second.task;
+                if (!task || task->shareCount <= 0) { continue; }
+                if (inFlight(*task)) { return true; }
+                for (auto& subtask : task->subTasks()) {
+                    if (inFlight(*subtask)) { return true; }
+                }
+            }
+        }
+    }
+    return false;
+}
+
 int TileManager::numTotalTiles() const {
     int tot = 0;
     for (const auto& tileSet : m_tileSets) { tot += tileSet.visibleTiles.size(); }

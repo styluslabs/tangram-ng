@@ -163,16 +163,8 @@ void FrameInfo::draw(RenderState& rs, const View& _view, Map& _map) {
         std::string rasterSizeStr = "Raster cache: ";
         for (const auto& source : scene.tileSources()) {
             if (!source->isRaster()) { continue; }
-            size_t ntex = 0, srcbytes = 0;
-            RasterSource::Cache* srctexs = static_cast<RasterSource*>(source.get())->m_textures.get();
-            for(auto& kv : *srctexs) {
-                auto tex = kv.second.lock();
-                if(tex) {
-                    ++ntex;
-                    srcbytes += tex->bufferSize();  // GL memory
-                    if(tex->bufferData()) { srcbytes += tex->bufferSize(); }  // heap memory
-                }
-            }
+            size_t ntex = 0;
+            size_t srcbytes = static_cast<RasterSource*>(source.get())->cacheMemoryUsage(&ntex);
             rasterSizeStr += source->name() + fstring(":%d (%dKB) ", int(ntex), int(srcbytes/1024));
         }
 
