@@ -4,7 +4,7 @@
 // - PNG decode is faster
 // - JPEG decode slower in valgrind but actual time is equal on Linux and faster on Android (1.3ms vs 2ms avg)
 // - deflate (zip/zlib/gzip) decoder is slightly faster in valgrind; actual time is faster on Linux (0.75ms vs 1ms)
-// See tangram-es/bench/benchmark/src/timers.cc for how to get per-thread CPU time
+// Per-thread CPU time for comparisons like these: clock_gettime(CLOCK_THREAD_CPUTIME_ID)
 
 #ifndef TANGRAM_NO_WUFFS
 

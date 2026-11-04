@@ -5,9 +5,6 @@
 	path = platforms/common/glfw
 	url = https://github.com/glfw/glfw
 	shallow = true
-[submodule "external/benchmark"]
-	path = bench/benchmark
-	url = https://github.com/google/benchmark
 [submodule "external/alfons"]
 	path = core/deps/alfons
 	url = https://github.com/hjanetzek/alfons

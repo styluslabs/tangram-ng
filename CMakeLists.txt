@@ -13,7 +13,6 @@ option(TANGRAM_MBTILES_DATASOURCE "Build MBTiles Datasource" ON)
 option(TANGRAM_BUILD_APP "Build maps app" ON)
 option(TANGRAM_BUILD_TESTS "Build unit tests" OFF)
 option(TANGRAM_BUNDLE_TESTS "Compile all tests into a single binary" ON)
-option(TANGRAM_BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(TANGRAM_DEV_MODE "For developers only: Don't omit the frame pointer" OFF)
 
 option(TANGRAM_USE_FONTCONTEXT_STB "Use fontstash and stb_truetype instead of harfbuzz-icu-freetype and alfons" ON)
@@ -54,7 +53,7 @@ if(NOT TANGRAM_PLATFORM)
 endif()
 
 # Configure platform target.
-if(TANGRAM_DEV_MODE AND TANGRAM_BUILD_BENCHMARKS)
+if(TANGRAM_DEV_MODE)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-omit-frame-pointer")
 endif()
@@ -82,7 +81,7 @@ endif()
 # Add core library.
 add_subdirectory(core)
 
-if(TANGRAM_BUILD_BENCHMARKS OR TANGRAM_BUILD_TESTS)
+if(TANGRAM_BUILD_TESTS)
   add_library(platform_mock
     tests/src/mockPlatform.cpp
     tests/src/gl_mock.cpp
@@ -98,7 +97,3 @@ if(TANGRAM_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-if(TANGRAM_BUILD_BENCHMARKS)
-  message(STATUS "Building benchmarks")
-  add_subdirectory(bench)
-endif()

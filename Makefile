@@ -7,7 +7,6 @@ all: android osx ios
 .PHONY: clean-ios
 .PHONY: clean-rpi
 .PHONY: clean-linux
-.PHONY: clean-benchmark
 .PHONY: clean-shaders
 .PHONY: clean-tizen-arm
 .PHONY: clean-tizen-x86
@@ -29,7 +28,6 @@ all: android osx ios
 .PHONY: ios-docs
 .PHONY: rpi
 .PHONY: linux
-.PHONY: benchmark
 .PHONY: tests
 .PHONY: cmake-osx
 .PHONY: cmake-xcode
@@ -49,7 +47,6 @@ RPI_BUILD_DIR = build/rpi
 #LINUX_BUILD_DIR = build/linux
 LINUX_BUILD_DIR = build/${BUILD_TYPE}
 TESTS_BUILD_DIR = build/tests
-BENCH_BUILD_DIR = build/bench
 TIZEN_ARM_BUILD_DIR = build/tizen-arm
 TIZEN_X86_BUILD_DIR = build/tizen-x86
 
@@ -60,11 +57,6 @@ else
 endif
 
 IOS_SIM_ARCH ?= $(shell uname -m)
-
-BENCH_CMAKE_PARAMS = \
-	-DTANGRAM_BUILD_BENCHMARKS=1 \
-	-DCMAKE_BUILD_TYPE=Release \
-	${CMAKE_OPTIONS}
 
 TESTS_CMAKE_PARAMS = \
 	-DTANGRAM_BUILD_TESTS=1 \
@@ -152,9 +144,6 @@ clean-xcode:
 
 clean-tests:
 	rm -rf ${TESTS_BUILD_DIR}
-
-clean-benchmark:
-	rm -rf ${BENCH_BUILD_DIR}
 
 clean-shaders:
 	rm -rf core/generated/*.h
@@ -275,10 +264,6 @@ cmake-tizen-x86:
 tests:
 	cmake -H. -B${TESTS_BUILD_DIR} ${TESTS_CMAKE_PARAMS}
 	cmake --build ${TESTS_BUILD_DIR}
-
-benchmark:
-	cmake -H. -B${BENCH_BUILD_DIR} ${BENCH_CMAKE_PARAMS}
-	cmake --build ${BENCH_BUILD_DIR}
 
 format:
 	@for file in `git diff --diff-filter=ACMRTUXB --name-only -- '*.cpp' '*.h'`; do \
