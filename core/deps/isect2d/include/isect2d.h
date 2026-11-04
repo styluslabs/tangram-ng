@@ -78,8 +78,9 @@ struct ISect2D {
 
     void clear() {
         aborted = 0;
+        // only buckets holding a pair are set (pairMap can be large after a dense tile)
+        for (const auto& pair : pairs) { pairMap[bucket(pair.first, pair.second)] = -1; }
         pairs.clear();
-        pairMap.assign(pairMap.size(), -1);
 
         aabbs.clear();
 
@@ -193,8 +194,7 @@ struct ISect2D {
                   const auto& b(_aabbs[v[k]]);
 
                   if (a.intersect(b)) {
-                      size_t key = hash_key(hash_int(v[j])<<32 | hash_int(v[k]));
-                      key &= (pairMap.size()-1);
+                      size_t key = bucket(v[j], v[k]);
 
                       int i = pairMap[key];
 
@@ -209,6 +209,8 @@ struct ISect2D {
                       if (i == -1) {
                           pairs.push_back(Pair{v[j], v[k], pairMap[key]});
                           pairMap[key] = pairs.size()-1;
+                          // keep chains short: a dense tile has many more pairs than the default buckets
+                          if (pairs.size() > pairMap.size()/2) { growPairMap(); }
                       }
                   }
               }
@@ -218,6 +220,19 @@ struct ISect2D {
    }
 
 private:
+    size_t bucket(int a, int b) const {
+        return hash_key(hash_int(a)<<32 | hash_int(b)) & (pairMap.size()-1);
+    }
+
+    void growPairMap() {
+        pairMap.assign(pairMap.size()*4, -1);
+        for (size_t i = 0; i < pairs.size(); ++i) {
+            size_t key = bucket(pairs[i].first, pairs[i].second);
+            pairs[i].next = pairMap[key];
+            pairMap[key] = int(i);
+        }
+    }
+
     // from fontstash
     static uint64_t hash_int(uint32_t a) {
         a += ~(a<<15);
