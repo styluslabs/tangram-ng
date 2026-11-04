@@ -104,6 +104,8 @@ public:
      * LoadTile starts an asynchronous I/O task to retrieve the data for a tile. When
      * the I/O task is complete, the tile data is added to a queue in @_tileManager for
      * further processing before it is renderable.
+     * For a task that needs loading, @_cb is called once (possibly on another thread), with no data on failure, unless
+     * the task is canceled or its Scene (TileTask::prana()) is deleted before loading completes.
      */
     virtual void loadTileData(std::shared_ptr<TileTask> _task, TileTaskCb _cb);
 

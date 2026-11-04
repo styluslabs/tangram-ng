@@ -202,10 +202,8 @@ bool MBTilesDataSource::loadTileData(std::shared_ptr<TileTask> _task, TileTaskCb
                 _task->rawSource = next->level;
 
                 if (!loadNextSource(_task, stalecb.func ? stalecb :_cb)) {
-                    // Trigger TileManager update so that tile will be
-                    // downloaded next time.
-                    _task->setNeedsLoading(true);
-                    m_platform.requestRender();
+                    // report failure (stale data, if any, is used by stalecb)
+                    (stalecb.func ? stalecb : _cb).func(_task);
                 }
             } else {
                 LOGD("%s - missing tile: %s", m_name.c_str(), _task->tileId().toString().c_str());
@@ -408,8 +406,9 @@ bool MBTilesDataSource::testSchema(SQLiteDB& db) {
         }
     });
 
-    // one issue w/ WAL is lack of clean application exit on mobile to flush it
-    //db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
+    // WAL avoids an fsync per commit, e.g. for tile_last_access update on every cache read (~0.8 ms per tile
+    //  without WAL); after an unclean exit (common on mobile), the WAL file is recovered when DB is next opened
+    db.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;");
     sqlite3_busy_timeout(db.db, 0);  // should not be any other writers
 
     return true;

@@ -85,6 +85,11 @@ void TileSource::loadTileData(std::shared_ptr<TileTask> _task, TileTaskCb _cb) {
         if (_task->needsLoading()) {
             if (m_sources->loadTileData(_task, _cb)) {
                 _task->startedLoading();
+            } else {
+                // no source could start loading: report failure (task has no data) so callers waiting on the
+                //  callback are not left hanging; TileManager handles this like a failed network request
+                _task->startedLoading();
+                _cb.func(_task);
             }
         } else if(_task->hasData() && _task->shareCount < 2) {
             _cb.func(_task);
