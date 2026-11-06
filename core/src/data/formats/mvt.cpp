@@ -35,7 +35,8 @@ void Mvt::getGeometry(ParserContext& _ctx, protobuf::message _geomIn) {
     GeomCmd cmd = GeomCmd::moveTo;
     uint32_t cmdRepeat = 0;
 
-    double invTileExtent = (1.0/(_ctx.tileExtent-1.0));
+    // tile spans 0 to extent (coordinates are positions, not pixel indices); exact for power of two extents
+    double invTileExtent = 1.0/_ctx.tileExtent;
 
     int64_t x = 0;
     int64_t y = 0;
@@ -227,6 +228,7 @@ Layer Mvt::getLayer(ParserContext& _ctx, protobuf::message _layerIn) {
     _ctx.keys.clear();
     _ctx.values.clear();
     _ctx.featureMsgs.clear();
+    _ctx.tileExtent = 4096;  // default per MVT spec if layer has no extent field
 
     bool lastWasFeature = false;
     size_t numFeatures = 0;
