@@ -36,7 +36,14 @@ namespace Mvt {
 
         int tileExtent = 0;
         int winding = 0;
+        // if not empty, getLayer() decodes only layers with these names (others are returned with name only)
+        std::vector<std::string> layers;
     };
+
+    // protobuf field numbers
+    enum TileTag { LAYER = 3 };
+    enum LayerTag { LAYER_NAME = 1, LAYER_FEATURE = 2, LAYER_KEY = 3, LAYER_VALUE = 4, LAYER_TILE_EXTENT = 5 };
+    enum FeatureTag { FEATURE_ID = 1, FEATURE_TAGS = 2, FEATURE_TYPE = 3, FEATURE_GEOM = 4 };
 
     enum GeomCmd {
         moveTo = 1,

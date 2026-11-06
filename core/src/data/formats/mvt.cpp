@@ -9,19 +9,6 @@
 #include <algorithm>
 #include <iterator>
 
-#define LAYER 3
-
-#define FEATURE_ID 1
-#define FEATURE_TAGS 2
-#define FEATURE_TYPE 3
-#define FEATURE_GEOM 4
-
-#define LAYER_NAME 1
-#define LAYER_FEATURE 2
-#define LAYER_KEY 3
-#define LAYER_VALUE 4
-#define LAYER_TILE_EXTENT 5
-
 namespace Tangram {
 
 void Mvt::getGeometry(ParserContext& _ctx, protobuf::message _geomIn) {
@@ -243,6 +230,10 @@ Layer Mvt::getLayer(ParserContext& _ctx, protobuf::message _layerIn) {
         switch(_layerIn.tag) {
             case LAYER_NAME: {
                 layer.name = _layerIn.string();
+                if (!_ctx.layers.empty() &&
+                    std::find(_ctx.layers.begin(), _ctx.layers.end(), layer.name) == _ctx.layers.end()) {
+                    return layer;  // not wanted: no features decoded
+                }
                 break;
             }
             case LAYER_FEATURE: {
