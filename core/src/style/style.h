@@ -55,6 +55,7 @@ enum class Blending : uint8_t {
     inlay,
     translucent,
     overlay,
+    modulate,  // 2x multiply: result = 2*src*dst, so src = 0.5 is neutral
 };
 
 enum class RasterType : uint8_t {

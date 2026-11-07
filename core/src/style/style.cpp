@@ -50,6 +50,7 @@ void Style::build(const Scene& _scene) {
     case Blending::inlay: blendingDefine = "#define TANGRAM_BLEND_INLAY\n"; break;
     case Blending::translucent: blendingDefine = "#define TANGRAM_BLEND_TRANSLUCENT\n"; break;
     case Blending::overlay: blendingDefine = "#define TANGRAM_BLEND_OVERLAY\n"; break;
+    case Blending::modulate: blendingDefine = "#define TANGRAM_BLEND_MODULATE\n"; break;
     }
 
     m_shaderSource->addSourceBlock("defines", blendingDefine, false);
@@ -304,6 +305,15 @@ void Style::onBeginDrawFrame(RenderState& rs, const View& _view) {
             rs.depthTest(GL_TRUE);
             rs.depthMask(GL_FALSE);
             break;
+        case Blending::modulate:
+            // result = src*dst + dst*src = 2*src*dst (for rgb and alpha); shader should output alpha = 0.5
+            //  to preserve dst alpha; depth written (as for nonopaque) so overlapping proxy tiles don't
+            //  modulate twice
+            rs.blending(GL_TRUE);
+            rs.blendingFunc(GL_DST_COLOR, GL_SRC_COLOR);
+            rs.depthTest(GL_TRUE);
+            rs.depthMask(GL_TRUE);
+            break;
         case Blending::overlay:
             rs.blending(GL_TRUE);
             rs.blendingFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -354,6 +364,7 @@ void Style::onBeginDrawSelectionFrame(RenderState& rs, const View& _view) {
         case Blending::multiply:
         case Blending::translucent:
         case Blending::nonopaque:
+        case Blending::modulate:
             rs.depthTest(GL_TRUE);
             rs.depthMask(GL_TRUE);
             break;

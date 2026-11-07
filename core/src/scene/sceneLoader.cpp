@@ -972,6 +972,7 @@ void SceneLoader::loadStyleProps(const Node& _styleNode, Style& _style, SceneTex
         else if (blendMode == "inlay")       { _style.setBlendMode(Blending::inlay); }
         else if (blendMode == "translucent") { _style.setBlendMode(Blending::translucent); }
         else if (blendMode == "nonopaque")   { _style.setBlendMode(Blending::nonopaque); }
+        else if (blendMode == "modulate")    { _style.setBlendMode(Blending::modulate); }
         else { LOGW("Invalid blend mode '%s'", blendMode.c_str()); }
     }
 
