@@ -4,6 +4,8 @@
 #include <tuple>
 #include <functional>
 #include <utility>
+#include <type_traits>
+#include <cstdint>
 
 #ifndef SQLITEPP_LOGE
 #include <stdio.h>
@@ -13,16 +15,21 @@
 #warning "SQLITEPP_LOGE not defined, using default."
 #endif
 
+namespace sqlitepp_detail {
+
+// f is taken by reference so stateful (mutable) callbacks keep state across rows and need not be copyable;
+//  tuple elements are moved into f's params so by-value std::string args don't make an extra copy
 template<class F, class Tuple, size_t... Is>
-constexpr auto apply_impl(Tuple t, F f, std::index_sequence<Is...>)
+constexpr auto apply_impl(F& f, Tuple&& t, std::index_sequence<Is...>)
 {
-  return f(std::get<Is>(t)...);
+  return f(std::get<Is>(std::forward<Tuple>(t))...);
 }
 
 template<class F, class Tuple>
-constexpr auto apply_tuple(F f, Tuple t)
+constexpr auto apply_tuple(F& f, Tuple&& t)
 {
-  return apply_impl(t, f, std::make_index_sequence<std::tuple_size<Tuple> {}> {});
+  return apply_impl(f, std::forward<Tuple>(t),
+      std::make_index_sequence<std::tuple_size<std::decay_t<Tuple>>::value> {});
 }
 
 // from https://github.com/SqliteModernCpp/sqlite_modern_cpp - extract signature from all possible fn types
@@ -45,6 +52,8 @@ struct func_traits<Ret(*)(Args...)> {
   using argument = typename std::tuple_element<Index,	argument_tuple>::type;
   static const std::size_t arity = sizeof...(Args);
 };
+
+}  // namespace sqlitepp_detail
 
 // of course there are many sqlite C++ wrappers and ORMs, but many (most?) don't even provide variadic bind()
 //  and only https://github.com/SqliteModernCpp/sqlite_modern_cpp seems to support extracting column types
@@ -113,7 +122,8 @@ public:
       res = sqlite3_step(stmt);
     else {
       while((res = sqlite3_step(stmt)) == SQLITE_ROW) {
-        apply_tuple(cb, _columns<typename func_traits<F>::argument_tuple>::get(*this));
+        sqlitepp_detail::apply_tuple(cb,
+            _columns<typename sqlitepp_detail::func_traits<F>::argument_tuple>::get(*this));
         if (abort && *abort) { res = SQLITE_OK; break; }
       }
     }
@@ -128,10 +138,17 @@ public:
     return ok;
   }
 
+  // note: single step, so a statement that returns a row (e.g. some PRAGMAs, RETURNING) is treated as failure
   bool exec() { return exec([](sqlite3_stmt*){}, true); }
+
+  // sqlite3_column_text pointer is invalidated by the step/reset below, so const char* can't be returned
+  template<class... Ts> struct _no_cstr : std::true_type {};
+  template<class T, class... Ts> struct _no_cstr<T, Ts...> : std::integral_constant<bool,
+      !std::is_same<std::decay_t<T>, const char*>::value && _no_cstr<Ts...>::value> {};
 
   template<class... Args>
   bool onerow(Args&... args) {
+    static_assert(_no_cstr<Args...>::value, "onerow() cannot return const char* (dangling); use std::string");
     if(!stmt) { SQLITEPP_LOGE("Attempting to exec null statement!"); return false; }
     int res = sqlite3_step(stmt);
     // no rows - not an error, but return false to inform caller no data was written
@@ -175,8 +192,11 @@ template<> inline double SQLiteStmt::get_col(int idx)
   { CHK_COL(idx, SQLITE_FLOAT); return sqlite3_column_double(stmt, idx); }
 template<> inline const char* SQLiteStmt::get_col(int idx)
   { CHK_COL(idx, SQLITE_TEXT); return (const char*)sqlite3_column_text(stmt, idx); }
-template<> inline std::string SQLiteStmt::get_col(int idx)
-  { CHK_COL(idx, SQLITE_TEXT); const char* res = (const char*)sqlite3_column_text(stmt, idx);  return res ? res : ""; }
+template<> inline std::string SQLiteStmt::get_col(int idx) {
+  CHK_COL(idx, SQLITE_TEXT);
+  const char* res = (const char*)sqlite3_column_text(stmt, idx);  // must call before sqlite3_column_bytes
+  return res ? std::string(res, sqlite3_column_bytes(stmt, idx)) : std::string();
+}
 template<> inline sqlite3_stmt* SQLiteStmt::get_col(int idx) { return stmt; }
 
 #undef CHK_COL
@@ -202,12 +222,12 @@ public:
     while((stmt = sqlite3_next_stmt(db, stmt)))
       SQLITEPP_LOGW("SQLite statement was not finalized: %s", sqlite3_sql(stmt));
 #endif
-    sqlite3_close(db);
+    sqlite3_close_v2(db);
     db = NULL;
   }
 
   int open(const std::string& file, int mode, const char* vfs = NULL)
-    { return sqlite3_open_v2(file.c_str(), &db, mode, vfs); }
+    { if(db) { close(); } return sqlite3_open_v2(file.c_str(), &db, mode, vfs); }
   sqlite3* release() { return std::exchange(db, nullptr); }
 
   const char* errMsg() { return sqlite3_errmsg(db); }
