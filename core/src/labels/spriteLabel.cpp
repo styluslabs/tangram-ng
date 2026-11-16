@@ -150,26 +150,21 @@ void SpriteLabel::obbs(ScreenTransform& _transform, OBBBuffer& _obbs) const {
     OBB obb;
 
     if (m_options.flat) {
-        const float infinity = std::numeric_limits<float>::infinity();
-        float minx = infinity, miny = infinity;
-        float maxx = -infinity, maxy = -infinity;
+        // oriented box fit to projected corners (order: -x-y, +x-y, -x+y, +x+y) so that rotated flat sprites,
+        //  e.g. w/ angle: auto along a line, don't get an oversized axis-aligned box; exact w/o tilt
+        glm::vec2 c[4];
+        for (int i = 0; i < 4; ++i) { c[i] = glm::vec2(_transform[i]); }
 
-        for (int i = 0; i < 4; ++i) {
-
-            const auto& position = _transform[i];
-            minx = std::min(minx, position.x);
-            miny = std::min(miny, position.y);
-            maxx = std::max(maxx, position.x);
-            maxy = std::max(maxy, position.y);
-        }
-
-        glm::vec2 dim = glm::vec2(maxx - minx, maxy - miny);
+        glm::vec2 xedge = 0.5f * ((c[1] - c[0]) + (c[3] - c[2]));
+        glm::vec2 yedge = 0.5f * ((c[2] - c[0]) + (c[3] - c[1]));
+        glm::vec2 dim(glm::length(xedge), glm::length(yedge));
+        glm::vec2 axis = dim.x > 0 ? xedge / dim.x : glm::vec2(1, 0);
 
         if (m_occludedLastFrame) { dim += Label::activation_distance_threshold; }
 
-        glm::vec2 obbCenter = glm::vec2((minx + maxx) * 0.5f, (miny + maxy) * 0.5f);
+        glm::vec2 obbCenter = 0.25f * (c[0] + c[1] + c[2] + c[3]);
 
-        obb = OBB(obbCenter, {1, 0}, dim.x, dim.y);
+        obb = OBB(obbCenter, axis, dim.x, dim.y);
     } else {
 
         BillboardTransform pointTransform(_transform);
