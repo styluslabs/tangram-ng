@@ -639,10 +639,24 @@ void LabelManager::drawDebug(RenderState& rs, const View& _view) {
         return;
     }
 
+    // m_labels' transformRange and obbsRange are only valid after a full update: an onlyRender update clears
+    //  m_obbs and refills m_transforms with other data, so recompute screen transform and OBBs here (view and
+    //  tiles are unchanged since this frame's update, so this rewrites the same cached values on the label)
+    auto viewState = _view.state();
+    ScreenTransform::Buffer transforms;
+    std::vector<OBB> obbs;
+
     for (auto& entry : m_labels) {
         auto* label = entry.label;
 
         if (label->type() == Label::Type::debug) { continue; }
+
+        Range transformRange, obbsRange;
+        ScreenTransform transform { transforms, transformRange };
+        const glm::mat4& mvp = entry.tile ? entry.tile->mvp() : entry.marker->modelViewProjectionMatrix();
+        if (!label->updateScreenTransform(mvp, viewState, nullptr, transform)) { continue; }
+        OBBBuffer labelObbs { obbs, obbsRange };
+        label->obbs(transform, labelObbs);
 
         glm::vec2 sp = label->screenCenter();
 
@@ -683,27 +697,28 @@ void LabelManager::drawDebug(RenderState& rs, const View& _view) {
         }
 #endif
 
-        for (auto& obb : OBBBuffer{ m_obbs, entry.obbsRange }) {
+        for (auto& obb : labelObbs) {
             Primitives::drawPoly(rs, &(obb.getQuad())[0], 4);
         }
 
-        if (label->relative() && label->relative()->visibleState() && !label->relative()->isOccluded()) {
+        if (obbsRange.length > 0 && label->relative() && label->relative()->visibleState()
+                && !label->relative()->isOccluded()) {
             Primitives::setColor(rs, 0xff0000);
-            Primitives::drawLine(rs, m_obbs[entry.obbsRange.start].getCentroid(),
+            Primitives::drawLine(rs, obbs[obbsRange.start].getCentroid(),
                                  label->relative()->screenCenter());
         }
 
         if (label->type() == Label::Type::curved) {
             //for (int i = entry.transform.start; i < entry.transform.end()-2; i++) {
-            for (int i = entry.transformRange.start; i < entry.transformRange.end()-1; i++) {
+            for (int i = transformRange.start; i < transformRange.end()-1; i++) {
                 if (i % 2 == 0) {
                     Primitives::setColor(rs, 0xff0000);
                 } else {
                     Primitives::setColor(rs, 0x0000ff);
 
                 }
-                Primitives::drawLine(rs, glm::vec2(m_transforms.points[i]),
-                                     glm::vec2(m_transforms.points[i+1]));
+                Primitives::drawLine(rs, glm::vec2(transforms.points[i]),
+                                     glm::vec2(transforms.points[i+1]));
             }
         }
 #if 0
