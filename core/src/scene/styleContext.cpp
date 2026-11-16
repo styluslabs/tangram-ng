@@ -204,11 +204,15 @@ bool StyleContext::evalStyle(FunctionID _id, StyleParamKey _key, StyleParam::Val
         bool value = jsValue.toBool();
 
         switch (_key) {
+            case StyleParamKey::flat:
             case StyleParamKey::interactive:
             case StyleParamKey::text_interactive:
+            case StyleParamKey::tile_edges:
             case StyleParamKey::visible:
             case StyleParamKey::outline_visible:
             case StyleParamKey::text_visible:
+            case StyleParamKey::collide:
+            case StyleParamKey::text_collide:
             case StyleParamKey::text_optional:
                 _val = value;
                 break;
