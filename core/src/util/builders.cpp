@@ -257,7 +257,6 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
     const float mlimsq = _ctx.miterLimit*_ctx.miterLimit;
     const int capTriangles = int(_ctx.cap);
     const int joinTriangles = _ctx.join == JoinTypes::round ? int(JoinTypes::round) : 1;
-    const float pi = 3.14159265358979f;
 
     // "right" side normal n = t rotated -90 deg (CCW positive) has u = 1, left side (-n) has u = 0
     float dist = 0;  // cumulative distance along the polyline
@@ -268,21 +267,16 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
     // length at start of current segment, on right and left sides, taken by inner miter of previous join
     float usedR = 0, usedL = 0;
 
-    // first point, with start cap
+    // first point, with start cap (caps have constant v and share their inner corners w/ the segment)
     glm::vec2 p0 = pts[0];
-    uint16_t r0, l0;
+    uint16_t r0 = addPolyLineVertex(p0, n01, 1.f, dist, _ctx);
+    uint16_t l0 = addPolyLineVertex(p0, -n01, 0.f, dist, _ctx);
     if (startCap && _ctx.cap == CapTypes::square) {
         uint16_t rc = addPolyLineVertex(p0, n01 - t01, 1.f, dist, _ctx);
         uint16_t lc = addPolyLineVertex(p0, -n01 - t01, 0.f, dist, _ctx);
-        r0 = addPolyLineVertex(p0, n01, 1.f, dist, _ctx);
-        l0 = addPolyLineVertex(p0, -n01, 0.f, dist, _ctx);
         addQuad(rc, lc, r0, l0, _ctx);
-    } else {
-        if (startCap && _ctx.cap == CapTypes::round) {
-            addFan(p0, {0, 0}, 0.5f, n01, -n01, -pi, 1.f, 0.f, dist, capTriangles, _ctx);
-        }
-        r0 = addPolyLineVertex(p0, n01, 1.f, dist, _ctx);
-        l0 = addPolyLineVertex(p0, -n01, 0.f, dist, _ctx);
+    } else if (startCap && _ctx.cap == CapTypes::round) {
+        addFan(p0, {0, 0}, 0.5f, n01, -n01, -float(PI), 1.f, 0.f, dist, capTriangles, _ctx, r0, l0);
     }
 
     // intermediate points (joins)
@@ -312,9 +306,9 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
         bool outerMiter = miterOk && _ctx.join == JoinTypes::miter && miterLenSq <= mlimsq;
 
         // for shallow miter joins (most joins in typical map data), vertices are shared between segments, w/
-        //  small distortion of texture (max shift of maxSharedVShift * width)
-        const float maxSharedVShift = 0.1f;
-        bool shareMiter = outerMiter && innerMiter && miterTan <= maxSharedVShift;
+        //  small distortion of texture (max shift along the line of maxSharedMiterTan * width)
+        const float maxSharedMiterTan = 0.1f;
+        bool shareMiter = outerMiter && innerMiter && miterTan <= maxSharedMiterTan;
         // other joins w/ tex coords: swept brush (see above) - butt ends and separate outer miter piece
         bool brush = texCoords && !shareMiter;
         if (brush) { innerMiter = false; }
@@ -380,7 +374,7 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
         uint16_t lc = addPolyLineVertex(p1, -n01 + t01, 0.f, dist, _ctx);
         addQuad(r1, l1, rc, lc, _ctx);
     } else if (endCap && _ctx.cap == CapTypes::round) {
-        addFan(p1, {0, 0}, 0.5f, -n01, n01, -pi, 0.f, 1.f, dist, capTriangles, _ctx);
+        addFan(p1, {0, 0}, 0.5f, -n01, n01, -float(PI), 0.f, 1.f, dist, capTriangles, _ctx, l1, r1);
     }
 }
 

@@ -76,7 +76,7 @@ struct PolyLineBuilder {
     size_t numVertices = 0;
     float miterLimit = 3.f;
     // max line half-width (in coordinate units) the mesh will be drawn with; inner miter joins longer than
-    //  the adjacent segments are replaced with bevels to prevent folding.  0 to disable
+    //  the adjacent segments are replaced with (overlapping) butt ends to prevent folding.  0 to disable
     float maxWidth = 0;
     std::vector<glm::vec2> points;  // scratch
     CapTypes cap;
