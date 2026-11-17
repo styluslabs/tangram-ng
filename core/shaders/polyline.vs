@@ -25,6 +25,7 @@ attribute vec4 a_color;
 attribute vec4 a_extrude;
 
 #ifdef TANGRAM_USE_TEX_COORDS
+    // packed: x = u*240 * 256 + v / 65536, y = v mod 65536, w/ v in 1/2048 units (see polylineStyle.cpp)
     attribute vec2 a_texcoord;
     varying vec2 v_texcoord;
 #endif
@@ -49,7 +50,6 @@ varying vec3 v_normal;
 #define UNPACK_POSITION(x) (x / 8192.0)
 #define UNPACK_EXTRUSION(x) (x / 4096.0)
 #define UNPACK_ORDER(x) (x / 2.0)
-#define UNPACK_TEXCOORD(x) (x / 2048.0)
 
 vec4 modelPosition() {
     return vec4(UNPACK_POSITION(a_position.xyz) * exp2(u_tile_origin.z - u_tile_origin.w), 1.0);
@@ -100,7 +100,9 @@ void main() {
     v_color = a_color;
 
     #ifdef TANGRAM_USE_TEX_COORDS
-        v_texcoord = UNPACK_TEXCOORD(a_texcoord);
+        // integer inputs < 2^16 and divisions by powers of 2 only, so exact
+        float uq = floor(a_texcoord.x / 256.0);
+        v_texcoord = vec2(uq / 240.0, (a_texcoord.x - uq * 256.0) * 32.0 + a_texcoord.y / 2048.0);
     #endif
 
     #ifdef TANGRAM_MODEL_POSITION_BASE_ZOOM_VARYING

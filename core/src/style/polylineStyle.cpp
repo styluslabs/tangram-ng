@@ -26,7 +26,8 @@
 
 constexpr float extrusion_scale = 4096.0f;
 constexpr float position_scale = 8192.0f;
-constexpr float texture_scale = 2048.0f;
+constexpr float texture_scale = 2048.0f;  // v resolution (1/2048 of a tile at style zoom)
+constexpr float texture_u_scale = 240.0f;  // u in 1/240 steps: exact for multiples of 1/12 (round caps, centers)
 constexpr float order_scale = 2.0f;
 constexpr float dash_scale = 20.f;
 
@@ -52,11 +53,20 @@ struct PolylineVertexNoUVs {
     GLuint selection;
 };
 
+// tex coords packed in 2 x u16 (see polyline.vs): v (distance along line) gets 24 bits, since it reaches
+//  far more than 16 bits for overzoomed tiles (v is in style zoom tile units), and u (across line) 8 bits:
+//  texcoord.x = u * 240 << 8 | v >> 16, texcoord.y = v & 0xffff, w/ v in 1/2048 units
+static glm::u16vec2 packTexCoord(glm::vec2 uv) {
+    uint32_t vq = uint32_t(std::min(std::round(uv.y * texture_scale), float(0xFFFFFF)));
+    uint32_t uq = uint32_t(std::round(glm::clamp(uv.x, 0.f, 1.f) * texture_u_scale));
+    return glm::u16vec2((uq << 8) | (vq >> 16), vq & 0xFFFF);
+}
+
 struct PolylineVertex : PolylineVertexNoUVs {
     PolylineVertex(glm::vec2 position, glm::vec2 extrude, glm::vec2 uv,
                    glm::i16vec2 width, glm::i16vec2 height, GLuint abgr, GLuint selection)
         : PolylineVertexNoUVs(position, extrude, uv, width, height, abgr, selection),
-          texcoord(uv * texture_scale) {}
+          texcoord(packTexCoord(uv)) {}
 
     PolylineVertex(PolylineVertex v, short order, glm::i16vec2 width, GLuint abgr, GLuint selection)
         : PolylineVertexNoUVs(v, order, width, abgr, selection),
