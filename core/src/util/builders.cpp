@@ -195,9 +195,12 @@ void Builders::buildPolygonExtrusion(const Polygon& _polygon, float _minHeight, 
 // Polyline tesselation: each segment is a quad (two triangles) and joins and caps are separate pieces of
 //  geometry.  Texture coord v is distance along the centerline; each vertex also gets the component of its
 //  extrusion along the direction v is measured in for its piece of geometry (segment direction for segments
-//  and caps, bisector for join fans), which is scaled by line width and added to v in the shader so that v is
-//  an affine function of position over each piece (no distortion of dashes and textures at joins).  Without
-//  tex coords, vertices are shared between adjacent pieces where possible.
+//  and caps), which is scaled by line width and added to v in the shader so that v is an affine function of
+//  position over each piece (no distortion of dashes and textures).  With tex coords, joins (except shallow
+//  miter joins, which share vertices) follow a brush swept along the centerline that pivots around the join
+//  point: segments have butt ends (overlapping on the inner side) and the outer join piece (fan or miter) has
+//  constant v, so v is also continuous across piece boundaries (no discontinuities or slivers of dashes at
+//  bends).  Without tex coords, vertices are shared between adjacent pieces where possible.
 
 // Helper function for polyline tesselation; returns index of added vertex
 static inline uint16_t addPolyLineVertex(const glm::vec2& _coord, const glm::vec2& _extrude, float _u, float _v,
@@ -213,16 +216,18 @@ static void addQuad(uint16_t _r0, uint16_t _l0, uint16_t _r1, uint16_t _l1, Poly
 }
 
 // Add fan of triangles around _coord, with center vertex extrusion _ec, arc from extrusion _a to _b sweeping
-//  signed angle _sweep (positive is CCW); tex coord u is interpolated from _ua to _ub along arc
+//  signed angle _sweep (positive is CCW); tex coord u is interpolated from _ua to _ub along arc; _first and
+//  _last are existing vertices to use for the ends of the arc (if >= 0; must have same attributes)
 static void addFan(const glm::vec2& _coord, const glm::vec2& _ec, float _uc, const glm::vec2& _a,
                    const glm::vec2& _b, float _sweep, float _ua, float _ub, float _v, int _numTriangles,
-                   const glm::vec2& _texDir, PolyLineBuilder& _ctx) {
+                   const glm::vec2& _texDir, PolyLineBuilder& _ctx, int _first = -1, int _last = -1) {
     uint16_t center = addPolyLineVertex(_coord, _ec, _uc, _v, _texDir, _ctx);
-    uint16_t prev = addPolyLineVertex(_coord, _a, _ua, _v, _texDir, _ctx);
+    uint16_t prev = _first >= 0 ? uint16_t(_first) : addPolyLineVertex(_coord, _a, _ua, _v, _texDir, _ctx);
     for (int ii = 1; ii <= _numTriangles; ii++) {
         float frac = ii/float(_numTriangles);
         glm::vec2 radial = ii < _numTriangles ? glm::rotate(_a, frac*_sweep) : _b;
-        uint16_t next = addPolyLineVertex(_coord, radial, (1.f - frac)*_ua + frac*_ub, _v, _texDir, _ctx);
+        uint16_t next = ii == _numTriangles && _last >= 0 ? uint16_t(_last) :
+            addPolyLineVertex(_coord, radial, (1.f - frac)*_ua + frac*_ub, _v, _texDir, _ctx);
         // keep same (CCW) winding as quads
         if (_sweep > 0) {
             _ctx.indices.insert(_ctx.indices.end(), { center, prev, next });
@@ -309,13 +314,6 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
         // miter outer join if requested and within miter limit, otherwise bevel or round
         bool outerMiter = miterOk && _ctx.join == JoinTypes::miter && miterLenSq <= mlimsq;
 
-        glm::vec2 eI01 = innerMiter ? -sO*miter : -sO*n01;
-        glm::vec2 eI12 = innerMiter ? -sO*miter : -sO*n12;
-        glm::vec2 eO01 = outerMiter ? sO*miter : sO*n01;
-        glm::vec2 eO12 = outerMiter ? sO*miter : sO*n12;
-        glm::vec2 eR01 = sO > 0 ? eO01 : eI01, eL01 = sO > 0 ? eI01 : eO01;
-        glm::vec2 eR12 = sO > 0 ? eO12 : eI12, eL12 = sO > 0 ? eI12 : eO12;
-
         // for shallow miter joins (most joins in typical map data), vertices are shared between segments and
         //  use bisector for tex coord direction (vshift = 0), with small distortion of texture (max shift of
         //  maxSharedVShift * width)
@@ -324,23 +322,22 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
         glm::vec2 bisect = t01 + t12;
         float bisectLen = glm::length(bisect);
         bisect = bisectLen > 1e-6f ? bisect/bisectLen : t01;
+        // other joins w/ tex coords: swept brush (see above) - butt ends and separate outer miter piece
+        bool brush = texCoords && !shareMiter;
+        if (brush) { innerMiter = false; }
+        bool miterQuads = outerMiter && !brush;  // segment quads extend to outer miter point
+
+        glm::vec2 eI01 = innerMiter ? -sO*miter : -sO*n01;
+        glm::vec2 eI12 = innerMiter ? -sO*miter : -sO*n12;
+        glm::vec2 eO01 = miterQuads ? sO*miter : sO*n01;
+        glm::vec2 eO12 = miterQuads ? sO*miter : sO*n12;
+        glm::vec2 eR01 = sO > 0 ? eO01 : eI01, eL01 = sO > 0 ? eI01 : eO01;
+        glm::vec2 eR12 = sO > 0 ? eO12 : eI12, eL12 = sO > 0 ? eI12 : eO12;
 
         // end of segment 01
         uint16_t r1 = addPolyLineVertex(p1, eR01, 1.f, dist, shareMiter ? bisect : t01, _ctx);
         uint16_t l1 = addPolyLineVertex(p1, eL01, 0.f, dist, shareMiter ? bisect : t01, _ctx);
         addQuad(r0, l0, r1, l1, _ctx);
-
-        // join
-        if (!outerMiter) {
-            glm::vec2 a = sO*n01, b = sO*n12;
-            float sweep = sO*std::acos(std::min(1.f, std::max(-1.f, glm::dot(a, b))));
-            float uO = sO > 0 ? 1.f : 0.f;
-            if (innerMiter) {
-                addFan(p1, -sO*miter, 1.f - uO, a, b, sweep, uO, uO, dist, joinTriangles, bisect, _ctx);
-            } else {
-                addFan(p1, {0, 0}, 0.5f, a, b, sweep, uO, uO, dist, joinTriangles, bisect, _ctx);
-            }
-        }
 
         // start of segment 12 - share vertices with end of segment 01 if possible
         auto canShare = [&](const glm::vec2& e01, const glm::vec2& e12) {
@@ -348,6 +345,34 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
         };
         r0 = canShare(eR01, eR12) ? r1 : addPolyLineVertex(p1, eR12, 1.f, dist, t12, _ctx);
         l0 = canShare(eL01, eL12) ? l1 : addPolyLineVertex(p1, eL12, 0.f, dist, t12, _ctx);
+
+        // join; brush joins have constant v (tex coord direction 0).  The outer corners of the join piece
+        //  (extrusion sO*n01, sO*n12) are the outer end vertices of the segments, which have the same attributes
+        //  (v = dist, vshift = 0 w/o tex coords or for brush joins), so they are shared
+        glm::vec2 joinTexDir = brush ? glm::vec2(0, 0) : bisect;
+        float uO = sO > 0 ? 1.f : 0.f;
+        uint16_t oEnd01 = sO > 0 ? r1 : l1, oStart12 = sO > 0 ? r0 : l0;
+        if (brush && outerMiter) {
+            // outer miter piece: center, end of segment 01, miter point, start of segment 12
+            uint16_t c = addPolyLineVertex(p1, {0, 0}, 0.5f, dist, joinTexDir, _ctx);
+            uint16_t m = addPolyLineVertex(p1, sO*miter, uO, dist, joinTexDir, _ctx);
+            // keep same (CCW) winding as quads
+            if (sO > 0) {
+                _ctx.indices.insert(_ctx.indices.end(), { c, oEnd01, m, c, m, oStart12 });
+            } else {
+                _ctx.indices.insert(_ctx.indices.end(), { c, m, oEnd01, c, oStart12, m });
+            }
+        } else if (!outerMiter) {
+            glm::vec2 a = sO*n01, b = sO*n12;
+            float sweep = sO*std::acos(std::min(1.f, std::max(-1.f, glm::dot(a, b))));
+            if (innerMiter) {
+                addFan(p1, -sO*miter, 1.f - uO, a, b, sweep, uO, uO, dist, joinTriangles, joinTexDir, _ctx,
+                       oEnd01, oStart12);
+            } else {
+                addFan(p1, {0, 0}, 0.5f, a, b, sweep, uO, uO, dist, joinTriangles, joinTexDir, _ctx,
+                       oEnd01, oStart12);
+            }
+        }
 
         usedI = innerMiter ? w*miterTan : 0;
         (sO > 0 ? usedR : usedL) = 0;

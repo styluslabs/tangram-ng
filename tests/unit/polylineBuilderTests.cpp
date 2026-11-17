@@ -12,7 +12,8 @@ using namespace Tangram;
 
 // Checks for Builders::buildPolyLine: each mesh is extruded at half-width W (pos = coord + extrude*W,
 //  v = uv.y + vshift*W, as the polyline shader does) and checked for folded triangles and, with tex coords,
-//  for v being an affine function of position with unit gradient over each triangle (no texture distortion)
+//  for v being an affine function of position w/ unit (or, in join pieces, zero) gradient over each triangle
+//  (no texture distortion) and continuous across piece boundaries (no breaks in dashes at joins)
 
 namespace {
 
@@ -47,6 +48,8 @@ struct MeshCheck {
     int numDistorted = 0;  // triangles where |grad v| differs from 1 by more than tolerance
     float maxGradErr = 0;
     float minArea = 0;
+    int numDiscontinuous = 0;  // vertices on an edge of another triangle w/ different v than the edge there
+    float maxJump = 0;
 };
 
 MeshCheck checkMesh(const PLMesh& _mesh, float _width, bool _texCoords, float _gradTol) {
@@ -70,9 +73,43 @@ MeshCheck checkMesh(const PLMesh& _mesh, float _width, bool _texCoords, float _g
         if (!_texCoords || std::abs(cross) < 1e-4f) { continue; }
         float dv1 = v[1] - v[0], dv2 = v[2] - v[0];
         glm::vec2 g((dv1*e2.y - dv2*e1.y)/cross, (e1.x*dv2 - e2.x*dv1)/cross);
-        float err = std::abs(glm::length(g) - 1);
+        // |grad v| is 1 (segments and caps) or 0 (join pieces, where the brush pivots around the join point)
+        float glen = glm::length(g);
+        float err = std::min(std::abs(glen - 1), glen);
         res.maxGradErr = std::max(res.maxGradErr, err);
         if (err > _gradTol) { res.numDistorted++; }
+    }
+    if (!_texCoords) { return res; }
+    // continuity of v across piece boundaries: for each vertex lying on an edge of a triangle (incl. at its
+    //  endpoints) at the same centerline point, v must match v interpolated along that edge (interiors of overlapping pieces, e.g. inner
+    //  side of butt joins, aren't checked: both are drawn there)
+    std::vector<glm::vec2> pos(_mesh.vertices.size());
+    std::vector<float> vs(_mesh.vertices.size());
+    for (size_t ii = 0; ii < pos.size(); ii++) {
+        const PLVertex& vtx = _mesh.vertices[ii];
+        pos[ii] = vtx.coord + vtx.extrude*_width;
+        vs[ii] = vtx.uv.y + vtx.vshift*_width;
+    }
+    const float eps = 1e-4f;
+    for (size_t pi = 0; pi < pos.size(); pi++) {
+        float jump = 0;
+        for (size_t ii = 0; ii < _mesh.indices.size(); ii += 3) {
+            for (int jj = 0; jj < 3; jj++) {
+                uint16_t ia = _mesh.indices[ii + jj], ib = _mesh.indices[ii + (jj+1)%3];
+                if (ia == pi || ib == pi) { continue; }
+                // only piece boundaries at the same join or cap (not other parts of a self-overlapping line)
+                const glm::vec2& cp = _mesh.vertices[pi].coord;
+                if (_mesh.vertices[ia].coord != cp || _mesh.vertices[ib].coord != cp) { continue; }
+                glm::vec2 ab = pos[ib] - pos[ia];
+                float lensq = glm::dot(ab, ab);
+                float t = lensq > 0 ? glm::dot(pos[pi] - pos[ia], ab)/lensq : 0;
+                if (t < -eps || t > 1 + eps) { continue; }
+                if (glm::length(pos[ia] + t*ab - pos[pi]) > eps) { continue; }
+                jump = std::max(jump, std::abs(vs[ia] + t*(vs[ib] - vs[ia]) - vs[pi]));
+            }
+        }
+        res.maxJump = std::max(res.maxJump, jump);
+        if (jump > 1e-3f) { res.numDiscontinuous++; }
     }
     return res;
 }
@@ -122,7 +159,7 @@ const CapTypes allCaps[] = { CapTypes::butt, CapTypes::square, CapTypes::round }
 
 }  // namespace
 
-TEST_CASE("Polyline builder: no folds, affine tex coords", "[polyline][builders]") {
+TEST_CASE("Polyline builder: no folds, affine and continuous tex coords", "[polyline][builders]") {
     for (const TestLine& tl : testLines()) {
         for (JoinTypes join : allJoins) {
             for (CapTypes cap : allCaps) {
@@ -133,9 +170,10 @@ TEST_CASE("Polyline builder: no folds, affine tex coords", "[polyline][builders]
                         MeshCheck res = checkMesh(mesh, width, tex, tl.gradTol);
                         INFO(tl.name << " join " << joinName(join) << " cap " << capName(cap)
                              << " tex " << tex << " W " << width << ": min area " << res.minArea
-                             << ", max |grad v| error " << res.maxGradErr);
+                             << ", max |grad v| error " << res.maxGradErr << ", max v jump " << res.maxJump);
                         CHECK(res.numFolded == 0);
                         CHECK(res.numDistorted == 0);
+                        CHECK(res.numDiscontinuous == 0);
                     }
                 }
             }
@@ -167,59 +205,53 @@ TEST_CASE("Polyline builder: vertex and index counts", "[polyline][builders][pol
     },
     { // collinear
       { {{6, 12}, {6, 12}}, {{10, 24}, {10, 24}}, {{22, 48}, {22, 48}} },
-      { {{9, 15}, {11, 15}}, {{13, 27}, {15, 27}}, {{25, 51}, {27, 51}} },
-      { {{13, 27}, {15, 27}}, {{17, 39}, {19, 39}}, {{29, 63}, {31, 63}} }
+      { {{7, 15}, {9, 15}}, {{11, 27}, {13, 27}}, {{23, 51}, {25, 51}} },
+      { {{11, 27}, {13, 27}}, {{15, 39}, {17, 39}}, {{27, 63}, {29, 63}} }
     },
     { // repeated
-      { {{6, 12}, {8, 12}}, {{10, 24}, {12, 24}}, {{22, 48}, {24, 48}} },
-      { {{10, 15}, {11, 15}}, {{14, 27}, {15, 27}}, {{26, 51}, {27, 51}} },
-      { {{14, 27}, {15, 27}}, {{18, 39}, {19, 39}}, {{30, 63}, {31, 63}} }
+      { {{6, 12}, {10, 18}}, {{10, 24}, {14, 30}}, {{22, 48}, {26, 54}} },
+      { {{8, 15}, {9, 15}}, {{12, 27}, {13, 27}}, {{24, 51}, {25, 51}} },
+      { {{12, 27}, {13, 27}}, {{16, 39}, {17, 39}}, {{28, 63}, {29, 63}} }
     },
     { // zigzag
-      { {{10, 24}, {16, 24}}, {{14, 36}, {20, 36}}, {{26, 60}, {32, 60}} },
-      { {{22, 33}, {25, 33}}, {{26, 45}, {29, 45}}, {{38, 69}, {41, 69}} },
-      { {{34, 69}, {37, 69}}, {{38, 81}, {41, 81}}, {{50, 105}, {53, 105}} }
+      { {{10, 24}, {22, 42}}, {{14, 36}, {26, 54}}, {{26, 60}, {38, 78}} },
+      { {{16, 33}, {19, 33}}, {{20, 45}, {23, 45}}, {{32, 69}, {35, 69}} },
+      { {{28, 69}, {31, 69}}, {{32, 81}, {35, 81}}, {{44, 105}, {47, 105}} }
     },
     { // zigzag-wide
-      { {{10, 24}, {16, 24}}, {{14, 36}, {20, 36}}, {{26, 60}, {32, 60}} },
-      { {{22, 33}, {25, 33}}, {{26, 45}, {29, 45}}, {{38, 69}, {41, 69}} },
-      { {{34, 69}, {37, 69}}, {{38, 81}, {41, 81}}, {{50, 105}, {53, 105}} }
+      { {{10, 24}, {22, 42}}, {{14, 36}, {26, 54}}, {{26, 60}, {38, 78}} },
+      { {{16, 33}, {19, 33}}, {{20, 45}, {23, 45}}, {{32, 69}, {35, 69}} },
+      { {{28, 69}, {31, 69}}, {{32, 81}, {35, 81}}, {{44, 105}, {47, 105}} }
     },
     { // sharp
-      { {{17, 24}, {18, 24}}, {{21, 36}, {22, 36}}, {{33, 60}, {34, 60}} },
-      { {{17, 24}, {18, 24}}, {{21, 36}, {22, 36}}, {{33, 60}, {34, 60}} },
-      { {{25, 48}, {26, 48}}, {{29, 60}, {30, 60}}, {{41, 84}, {42, 84}} }
+      { {{13, 24}, {14, 24}}, {{17, 36}, {18, 36}}, {{29, 60}, {30, 60}} },
+      { {{13, 24}, {14, 24}}, {{17, 36}, {18, 36}}, {{29, 60}, {30, 60}} },
+      { {{21, 48}, {22, 48}}, {{25, 60}, {26, 60}}, {{37, 84}, {38, 84}} }
     },
     { // short
-      { {{16, 30}, {20, 30}}, {{20, 42}, {24, 42}}, {{32, 66}, {36, 66}} },
-      { {{32, 42}, {32, 42}}, {{36, 54}, {36, 54}}, {{48, 78}, {48, 78}} },
-      { {{48, 90}, {48, 90}}, {{52, 102}, {52, 102}}, {{64, 126}, {64, 126}} }
+      { {{16, 30}, {28, 54}}, {{20, 42}, {32, 66}}, {{32, 66}, {44, 90}} },
+      { {{24, 42}, {24, 42}}, {{28, 54}, {28, 54}}, {{40, 78}, {40, 78}} },
+      { {{40, 90}, {40, 90}}, {{44, 102}, {44, 102}}, {{56, 126}, {56, 126}} }
     },
     { // uturn
-      { {{10, 18}, {12, 18}}, {{14, 30}, {16, 30}}, {{26, 54}, {28, 54}} },
-      { {{18, 24}, {18, 24}}, {{22, 36}, {22, 36}}, {{34, 60}, {34, 60}} },
-      { {{26, 48}, {26, 48}}, {{30, 60}, {30, 60}}, {{42, 84}, {42, 84}} }
+      { {{10, 18}, {16, 30}}, {{14, 30}, {20, 42}}, {{26, 54}, {32, 66}} },
+      { {{14, 24}, {14, 24}}, {{18, 36}, {18, 36}}, {{30, 60}, {30, 60}} },
+      { {{22, 48}, {22, 48}}, {{26, 60}, {26, 60}}, {{38, 84}, {38, 84}} }
     },
     { // reverse
-      { {{11, 15}, {11, 15}}, {{15, 27}, {15, 27}}, {{27, 51}, {27, 51}} },
-      { {{11, 15}, {11, 15}}, {{15, 27}, {15, 27}}, {{27, 51}, {27, 51}} },
-      { {{15, 27}, {15, 27}}, {{19, 39}, {19, 39}}, {{31, 63}, {31, 63}} }
+      { {{9, 15}, {9, 15}}, {{13, 27}, {13, 27}}, {{25, 51}, {25, 51}} },
+      { {{9, 15}, {9, 15}}, {{13, 27}, {13, 27}}, {{25, 51}, {25, 51}} },
+      { {{13, 27}, {13, 27}}, {{17, 39}, {17, 39}}, {{29, 63}, {29, 63}} }
     },
     { // arc
-      { {{38, 108}, {38, 108}}, {{42, 120}, {42, 120}}, {{54, 144}, {54, 144}
-} },
-      { {{106, 159}, {123, 159}}, {{110, 171}, {127, 171}}, {{122, 195},
-{139, 195}} },
-      { {{174, 363}, {191, 363}}, {{178, 375}, {195, 375}}, {{190, 399},
-{207, 399}} }
+      { {{38, 108}, {38, 108}}, {{42, 120}, {42, 120}}, {{54, 144}, {54, 144}} },
+      { {{72, 159}, {89, 159}}, {{76, 171}, {93, 171}}, {{88, 195}, {105, 195}} },
+      { {{140, 363}, {157, 363}}, {{144, 375}, {161, 375}}, {{156, 399}, {173, 399}} }
     },
     { // arc-cw
-      { {{38, 108}, {38, 108}}, {{42, 120}, {42, 120}}, {{54, 144}, {54, 144}
-} },
-      { {{106, 159}, {123, 159}}, {{110, 171}, {127, 171}}, {{122, 195},
-{139, 195}} },
-      { {{174, 363}, {191, 363}}, {{178, 375}, {195, 375}}, {{190, 399},
-{207, 399}} }
+      { {{38, 108}, {38, 108}}, {{42, 120}, {42, 120}}, {{54, 144}, {54, 144}} },
+      { {{72, 159}, {89, 159}}, {{76, 171}, {93, 171}}, {{88, 195}, {105, 195}} },
+      { {{140, 363}, {157, 363}}, {{144, 375}, {161, 375}}, {{156, 399}, {173, 399}} }
     },
     };
     auto lines = testLines();
