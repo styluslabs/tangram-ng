@@ -18,6 +18,7 @@ MODULE_SOURCES = \
   unit/lngLatTests.cpp \
   unit/mapProjectionTests.cpp \
   unit/meshTests.cpp \
+  unit/polylineBuilderTests.cpp \
   unit/networkDataSourceTests.cpp \
   unit/sceneImportTests.cpp \
   unit/sceneLoaderTests.cpp \
