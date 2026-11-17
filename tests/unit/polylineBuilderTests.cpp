@@ -10,10 +10,10 @@
 
 using namespace Tangram;
 
-// Checks for Builders::buildPolyLine: each mesh is extruded at half-width W (pos = coord + extrude*W,
-//  v = uv.y + vshift*W, as the polyline shader does) and checked for folded triangles and, with tex coords,
-//  for v being an affine function of position w/ unit (or, in join pieces, zero) gradient over each triangle
-//  (no texture distortion) and continuous across piece boundaries (no breaks in dashes at joins)
+// Checks for Builders::buildPolyLine: each mesh is extruded at half-width W (pos = coord + extrude*W, as the
+//  polyline shader does) and checked for folded triangles and, with tex coords, for v being an affine function
+//  of position w/ unit (or, in join and cap pieces, zero) gradient over each triangle (no texture distortion)
+//  and continuous across piece boundaries (no breaks in dashes at joins)
 
 namespace {
 
@@ -21,7 +21,6 @@ struct PLVertex {
     glm::vec2 coord;
     glm::vec2 extrude;
     glm::vec2 uv;
-    float vshift;
 };
 
 struct PLMesh {
@@ -31,9 +30,8 @@ struct PLMesh {
 
 PLMesh buildLine(const Line& _line, JoinTypes _join, CapTypes _cap, bool _texCoords, float _maxWidth) {
     PLMesh mesh;
-    PolyLineBuilder builder([&](const glm::vec2& coord, const glm::vec2& enormal, const glm::vec2& uv,
-                                float vshift) {
-        mesh.vertices.push_back({coord, enormal, uv, vshift});
+    PolyLineBuilder builder([&](const glm::vec2& coord, const glm::vec2& enormal, const glm::vec2& uv) {
+        mesh.vertices.push_back({coord, enormal, uv});
     }, _cap, _join);
     builder.useTexCoords = _texCoords;
     builder.maxWidth = _maxWidth;
@@ -63,7 +61,7 @@ MeshCheck checkMesh(const PLMesh& _mesh, float _width, bool _texCoords, float _g
             REQUIRE(idx < _mesh.vertices.size());
             const PLVertex& vtx = _mesh.vertices[idx];
             p[jj] = vtx.coord + vtx.extrude*_width;
-            v[jj] = vtx.uv.y + vtx.vshift*_width;
+            v[jj] = vtx.uv.y;
         }
         glm::vec2 e1 = p[1] - p[0], e2 = p[2] - p[0];
         float cross = e1.x*e2.y - e1.y*e2.x;  // twice signed area; CCW positive
@@ -73,7 +71,7 @@ MeshCheck checkMesh(const PLMesh& _mesh, float _width, bool _texCoords, float _g
         if (!_texCoords || std::abs(cross) < 1e-4f) { continue; }
         float dv1 = v[1] - v[0], dv2 = v[2] - v[0];
         glm::vec2 g((dv1*e2.y - dv2*e1.y)/cross, (e1.x*dv2 - e2.x*dv1)/cross);
-        // |grad v| is 1 (segments and caps) or 0 (join pieces, where the brush pivots around the join point)
+        // |grad v| is 1 (segments) or 0 (join pieces, where the brush pivots around the join point, and caps)
         float glen = glm::length(g);
         float err = std::min(std::abs(glen - 1), glen);
         res.maxGradErr = std::max(res.maxGradErr, err);
@@ -88,7 +86,7 @@ MeshCheck checkMesh(const PLMesh& _mesh, float _width, bool _texCoords, float _g
     for (size_t ii = 0; ii < pos.size(); ii++) {
         const PLVertex& vtx = _mesh.vertices[ii];
         pos[ii] = vtx.coord + vtx.extrude*_width;
-        vs[ii] = vtx.uv.y + vtx.vshift*_width;
+        vs[ii] = vtx.uv.y;
     }
     const float eps = 1e-4f;
     for (size_t pi = 0; pi < pos.size(); pi++) {
@@ -205,8 +203,8 @@ TEST_CASE("Polyline builder: vertex and index counts", "[polyline][builders][pol
     },
     { // collinear
       { {{6, 12}, {6, 12}}, {{10, 24}, {10, 24}}, {{22, 48}, {22, 48}} },
-      { {{7, 15}, {9, 15}}, {{11, 27}, {13, 27}}, {{23, 51}, {25, 51}} },
-      { {{11, 27}, {13, 27}}, {{15, 39}, {17, 39}}, {{27, 63}, {29, 63}} }
+      { {{7, 15}, {7, 15}}, {{11, 27}, {11, 27}}, {{23, 51}, {23, 51}} },
+      { {{11, 27}, {11, 27}}, {{15, 39}, {15, 39}}, {{27, 63}, {27, 63}} }
     },
     { // repeated
       { {{6, 12}, {10, 18}}, {{10, 24}, {14, 30}}, {{22, 48}, {26, 54}} },

@@ -29,13 +29,11 @@ constexpr float position_scale = 8192.0f;
 constexpr float texture_scale = 2048.0f;
 constexpr float order_scale = 2.0f;
 constexpr float dash_scale = 20.f;
-constexpr float vshift_scale = 1024.0f;
-constexpr float vshift_offset = 32768.0f;
 
 namespace Tangram {
 
 struct PolylineVertexNoUVs {
-    PolylineVertexNoUVs(glm::vec2 position, glm::vec2 extrude, glm::vec3 uv,
+    PolylineVertexNoUVs(glm::vec2 position, glm::vec2 extrude, glm::vec2 uv,
                         glm::i16vec2 width, glm::i16vec2 height, GLuint abgr, GLuint selection)
         : pos(glm::i16vec2{ nearbyint(position * position_scale)}, height),
           extrude(glm::i16vec2{extrude * extrusion_scale}, width),
@@ -55,18 +53,16 @@ struct PolylineVertexNoUVs {
 };
 
 struct PolylineVertex : PolylineVertexNoUVs {
-    // uv.z is vshift (see PolyLineVertexFn), stored with offset since a_texcoord is unsigned
-    PolylineVertex(glm::vec2 position, glm::vec2 extrude, glm::vec3 uv,
+    PolylineVertex(glm::vec2 position, glm::vec2 extrude, glm::vec2 uv,
                    glm::i16vec2 width, glm::i16vec2 height, GLuint abgr, GLuint selection)
         : PolylineVertexNoUVs(position, extrude, uv, width, height, abgr, selection),
-          texcoord(glm::vec2(uv) * texture_scale,
-                   glm::clamp(std::nearbyint(uv.z * vshift_scale + vshift_offset), 0.f, 65535.f), 0) {}
+          texcoord(uv * texture_scale) {}
 
     PolylineVertex(PolylineVertex v, short order, glm::i16vec2 width, GLuint abgr, GLuint selection)
         : PolylineVertexNoUVs(v, order, width, abgr, selection),
           texcoord(v.texcoord) {}
 
-    glm::u16vec4 texcoord;
+    glm::u16vec2 texcoord;
 };
 
 PolylineStyle::PolylineStyle(std::string _name, Blending _blendMode, GLenum _drawMode, bool _selection)
@@ -84,7 +80,7 @@ void PolylineStyle::constructVertexLayout() {
             {"a_extrude", 4, GL_SHORT, false, 0},
             {"a_color", 4, GL_UNSIGNED_BYTE, true, 0},
             {"a_selection_color", 4, GL_UNSIGNED_BYTE, true, 0},
-            {"a_texcoord", 4, GL_UNSIGNED_SHORT, false, 0},
+            {"a_texcoord", 2, GL_UNSIGNED_SHORT, false, 0},
         }));
     } else {
         m_vertexLayout = std::shared_ptr<VertexLayout>(new VertexLayout({
@@ -449,8 +445,8 @@ void PolylineStyleBuilder<V>::buildLine(const Line& _line, const typename Parame
                                         MeshData<V>& _mesh, GLuint selection) {
 
     float zoom = m_overzoom2;
-    m_builder.addVertex = [&](const glm::vec2& coord, const glm::vec2& normal, const glm::vec2& uv, float vshift) {
-        _mesh.vertices.push_back({{ coord.x,coord.y }, normal, { uv.x, uv.y * zoom, vshift },
+    m_builder.addVertex = [&](const glm::vec2& coord, const glm::vec2& normal, const glm::vec2& uv) {
+        _mesh.vertices.push_back({{ coord.x,coord.y }, normal, { uv.x, uv.y * zoom },
                                   _att.width, _att.height, _att.color, selection});
     };
 
