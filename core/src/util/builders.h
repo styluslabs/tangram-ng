@@ -63,9 +63,12 @@ struct PolygonBuilder {
  *
  * @coord   tesselated output coordinate
  * @enormal extrusion vector of the output coordinate
- * @uv      texture coordinate of the output coordinate
+ * @uv      texture coordinate of the output coordinate (v is distance along the line centerline)
+ * @vshift  component of enormal along the direction v is measured in; multiplied by line width and added
+ *          to v when extruding so that v is linear in position across each piece of geometry
  */
-typedef std::function<void(const glm::vec2& coord, const glm::vec2& enormal, const glm::vec2& uv)> PolyLineVertexFn;
+typedef std::function<void(const glm::vec2& coord, const glm::vec2& enormal, const glm::vec2& uv,
+                           float vshift)> PolyLineVertexFn;
 
 /* PolyLineBuilder context,
  * see Builders::buildPolyLine()
@@ -75,13 +78,17 @@ struct PolyLineBuilder {
     PolyLineVertexFn addVertex;
     size_t numVertices = 0;
     float miterLimit = 3.f;
+    // max line half-width (in coordinate units) the mesh will be drawn with; inner miter joins longer than
+    //  the adjacent segments are replaced with bevels to prevent folding.  0 to disable
+    float maxWidth = 0;
+    std::vector<glm::vec2> points;  // scratch
     CapTypes cap;
     JoinTypes join;
     bool keepTileEdges;
     bool closedPolygon;
     bool useTexCoords = false;
 
-    PolyLineBuilder(PolyLineVertexFn _addVertex = [](auto&,auto&,auto&){},
+    PolyLineBuilder(PolyLineVertexFn _addVertex = [](auto&,auto&,auto&,float){},
                     CapTypes _cap = CapTypes::butt,
                     JoinTypes _join = JoinTypes::bevel,
                     bool _kte = true, bool _closedPoly = false)

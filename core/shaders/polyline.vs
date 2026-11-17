@@ -25,7 +25,7 @@ attribute vec4 a_color;
 attribute vec4 a_extrude;
 
 #ifdef TANGRAM_USE_TEX_COORDS
-    attribute vec2 a_texcoord;
+    attribute vec4 a_texcoord;
     varying vec2 v_texcoord;
 #endif
 
@@ -50,6 +50,7 @@ varying vec3 v_normal;
 #define UNPACK_EXTRUSION(x) (x / 4096.0)
 #define UNPACK_ORDER(x) (x / 2.0)
 #define UNPACK_TEXCOORD(x) (x / 2048.0)
+#define UNPACK_VSHIFT(x) ((x - 32768.0) / 1024.0)
 
 vec4 modelPosition() {
     return vec4(UNPACK_POSITION(a_position.xyz) * exp2(u_tile_origin.z - u_tile_origin.w), 1.0);
@@ -100,7 +101,7 @@ void main() {
     v_color = a_color;
 
     #ifdef TANGRAM_USE_TEX_COORDS
-        v_texcoord = UNPACK_TEXCOORD(a_texcoord);
+        v_texcoord = UNPACK_TEXCOORD(a_texcoord.xy);
     #endif
 
     #ifdef TANGRAM_MODEL_POSITION_BASE_ZOOM_VARYING
@@ -126,6 +127,9 @@ void main() {
 
         // line dash is specified as multiples of line width; use width at half zoom (to support extrude.z == 0)
         #ifdef TANGRAM_USE_TEX_COORDS
+            // shift v by extrusion along line direction so v follows extruded position, not just centerline;
+            //  v is in units of overzoomed tile coords, width is in tile coords
+            v_texcoord.y += UNPACK_VSHIFT(a_texcoord.z) * width * exp2(u_tile_origin.z - u_tile_origin.w);
             v_texcoord.y /= 2. * (extrude.z + dwdz/2.);
         #endif
 

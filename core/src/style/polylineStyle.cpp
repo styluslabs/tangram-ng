@@ -29,11 +29,13 @@ constexpr float position_scale = 8192.0f;
 constexpr float texture_scale = 2048.0f;
 constexpr float order_scale = 2.0f;
 constexpr float dash_scale = 20.f;
+constexpr float vshift_scale = 1024.0f;
+constexpr float vshift_offset = 32768.0f;
 
 namespace Tangram {
 
 struct PolylineVertexNoUVs {
-    PolylineVertexNoUVs(glm::vec2 position, glm::vec2 extrude, glm::vec2 uv,
+    PolylineVertexNoUVs(glm::vec2 position, glm::vec2 extrude, glm::vec3 uv,
                         glm::i16vec2 width, glm::i16vec2 height, GLuint abgr, GLuint selection)
         : pos(glm::i16vec2{ nearbyint(position * position_scale)}, height),
           extrude(glm::i16vec2{extrude * extrusion_scale}, width),
@@ -53,16 +55,18 @@ struct PolylineVertexNoUVs {
 };
 
 struct PolylineVertex : PolylineVertexNoUVs {
-    PolylineVertex(glm::vec2 position, glm::vec2 extrude, glm::vec2 uv,
+    // uv.z is vshift (see PolyLineVertexFn), stored with offset since a_texcoord is unsigned
+    PolylineVertex(glm::vec2 position, glm::vec2 extrude, glm::vec3 uv,
                    glm::i16vec2 width, glm::i16vec2 height, GLuint abgr, GLuint selection)
         : PolylineVertexNoUVs(position, extrude, uv, width, height, abgr, selection),
-          texcoord(uv * texture_scale) {}
+          texcoord(glm::vec2(uv) * texture_scale,
+                   glm::clamp(std::nearbyint(uv.z * vshift_scale + vshift_offset), 0.f, 65535.f), 0) {}
 
     PolylineVertex(PolylineVertex v, short order, glm::i16vec2 width, GLuint abgr, GLuint selection)
         : PolylineVertexNoUVs(v, order, width, abgr, selection),
           texcoord(v.texcoord) {}
 
-    glm::u16vec2 texcoord;
+    glm::u16vec4 texcoord;
 };
 
 PolylineStyle::PolylineStyle(std::string _name, Blending _blendMode, GLenum _drawMode, bool _selection)
@@ -80,7 +84,7 @@ void PolylineStyle::constructVertexLayout() {
             {"a_extrude", 4, GL_SHORT, false, 0},
             {"a_color", 4, GL_UNSIGNED_BYTE, true, 0},
             {"a_selection_color", 4, GL_UNSIGNED_BYTE, true, 0},
-            {"a_texcoord", 2, GL_UNSIGNED_SHORT, false, 0},
+            {"a_texcoord", 4, GL_UNSIGNED_SHORT, false, 0},
         }));
     } else {
         m_vertexLayout = std::shared_ptr<VertexLayout>(new VertexLayout({
@@ -445,8 +449,8 @@ void PolylineStyleBuilder<V>::buildLine(const Line& _line, const typename Parame
                                         MeshData<V>& _mesh, GLuint selection) {
 
     float zoom = m_overzoom2;
-    m_builder.addVertex = [&](const glm::vec2& coord, const glm::vec2& normal, const glm::vec2& uv) {
-        _mesh.vertices.push_back({{ coord.x,coord.y }, normal, { uv.x, uv.y * zoom },
+    m_builder.addVertex = [&](const glm::vec2& coord, const glm::vec2& normal, const glm::vec2& uv, float vshift) {
+        _mesh.vertices.push_back({{ coord.x,coord.y }, normal, { uv.x, uv.y * zoom, vshift },
                                   _att.width, _att.height, _att.color, selection});
     };
 
@@ -462,27 +466,46 @@ void PolylineStyleBuilder<V>::buildLine(const Line& _line, const typename Parame
     m_builder.clear();
 }
 
+// max half-width in tile coordinate units that line will be drawn with for map zoom from tile zoom to tile
+//  zoom + 1: width*exp2(-dz)/overzoom2 with width = width0 + dwdz*dz (see polyline.vs)
+static float maxExtrudeWidth(glm::i16vec2 _width, float _overzoom2) {
+    float w0 = _width.x/extrusion_scale, dwdz = _width.y/extrusion_scale;
+    float wmax = std::max(w0, 0.5f*(w0 + dwdz));
+    // local maximum at d/dz = 0
+    float dz = dwdz > 0 ? 1/std::log(2.f) - w0/dwdz : -1;
+    if (dz > 0 && dz < 1) { wmax = std::max(wmax, (w0 + dwdz*dz)*std::exp2(-dz)); }
+    return wmax/_overzoom2;
+}
+
 template <class V>
 void PolylineStyleBuilder<V>::addMesh(const Line& _line, const Parameters& _params) {
+
+    bool rebuildStroke = _params.outlineOn && (!_params.lineOn ||
+        _params.stroke.cap != _params.fill.cap ||
+        _params.stroke.join != _params.fill.join ||
+        _params.stroke.miterLimit != _params.fill.miterLimit);
 
     m_builder.cap = _params.fill.cap;
     m_builder.join = _params.fill.join;
     m_builder.miterLimit = _params.fill.miterLimit;
     m_builder.keepTileEdges = _params.keepTileEdges;
     m_builder.closedPolygon = _params.closedPolygon;
+    // geometry is shared with outline unless rebuildStroke
+    m_builder.maxWidth = maxExtrudeWidth(_params.fill.width, m_overzoom2);
+    if (_params.outlineOn && !rebuildStroke) {
+        m_builder.maxWidth = std::max(m_builder.maxWidth, maxExtrudeWidth(_params.stroke.width, m_overzoom2));
+    }
 
     if (_params.lineOn) { buildLine(_line, _params.fill, m_meshData[0], _params.selectionColor); }
 
     if (!_params.outlineOn) { return; }
 
-    if (!_params.lineOn ||
-        _params.stroke.cap != _params.fill.cap ||
-        _params.stroke.join != _params.fill.join ||
-        _params.stroke.miterLimit != _params.fill.miterLimit) {
+    if (rebuildStroke) {
         // need to re-triangulate with different cap and/or join
         m_builder.cap = _params.stroke.cap;
         m_builder.join = _params.stroke.join;
         m_builder.miterLimit = _params.stroke.miterLimit;
+        m_builder.maxWidth = maxExtrudeWidth(_params.stroke.width, m_overzoom2);
 
         buildLine(_line, _params.stroke, m_meshData[1], _params.selectionColor);
 

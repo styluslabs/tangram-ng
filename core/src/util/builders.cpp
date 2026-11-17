@@ -192,223 +192,183 @@ void Builders::buildPolygonExtrusion(const Polygon& _polygon, float _minHeight, 
     }
 }
 
-// Get 2D perpendicular of two points
-static glm::vec2 perp2d(const glm::vec2& _v1, const glm::vec2& _v2 ){
-    return glm::vec2(_v2.y - _v1.y, _v1.x - _v2.x);
+// Polyline tesselation: each segment is a quad (two triangles) and joins and caps are separate pieces of
+//  geometry.  Texture coord v is distance along the centerline; each vertex also gets the component of its
+//  extrusion along the direction v is measured in for its piece of geometry (segment direction for segments
+//  and caps, bisector for join fans), which is scaled by line width and added to v in the shader so that v is
+//  an affine function of position over each piece (no distortion of dashes and textures at joins).  Without
+//  tex coords, vertices are shared between adjacent pieces where possible.
+
+// Helper function for polyline tesselation; returns index of added vertex
+static inline uint16_t addPolyLineVertex(const glm::vec2& _coord, const glm::vec2& _extrude, float _u, float _v,
+                                         const glm::vec2& _texDir, PolyLineBuilder& _ctx) {
+    float vshift = _ctx.useTexCoords ? glm::dot(_extrude, _texDir) : 0.f;
+    _ctx.addVertex(_coord, _extrude, glm::vec2(_u, _v), vshift);
+    return uint16_t(_ctx.numVertices++);
 }
 
-// Helper function for polyline tesselation
-static inline void addPolyLineVertex(const glm::vec2& _coord, const glm::vec2& _normal,
-                                     const glm::vec2& _uv, PolyLineBuilder& _ctx) {
-    _ctx.numVertices++;
-    _ctx.addVertex(_coord, _normal, _uv);
+// Add indices for quad with vertices r0, l0 at one end and r1, l1 at the other
+static void addQuad(uint16_t _r0, uint16_t _l0, uint16_t _r1, uint16_t _l1, PolyLineBuilder& _ctx) {
+    _ctx.indices.insert(_ctx.indices.end(), { _r0, _r1, _l0, _l0, _r1, _l1 });
 }
 
-// Helper function for polyline tesselation; adds indices for pairs of vertices arranged like a line strip
-static void indexPairs( int _nPairs, int _nVertices, std::vector<uint16_t>& _indicesOut) {
-    for (int i = 0; i < _nPairs; i++) {
-        _indicesOut.push_back(_nVertices - 2*i - 4);
-        _indicesOut.push_back(_nVertices - 2*i - 2);
-        _indicesOut.push_back(_nVertices - 2*i - 3);
-
-        _indicesOut.push_back(_nVertices - 2*i - 3);
-        _indicesOut.push_back(_nVertices - 2*i - 2);
-        _indicesOut.push_back(_nVertices - 2*i - 1);
-    }
-}
-
-//  Tessalate a fan geometry between points A       B
-//  using their normals from a center        \ . . /
-//  and interpolating their UVs               \ p /
-//                                             \./
-//                                              C
-static void addFan(const glm::vec2& _pC,
-            const glm::vec2& _nA, const glm::vec2& _nB, const glm::vec2& _nC,
-            const glm::vec2& _uA, const glm::vec2& _uB, const glm::vec2& _uC,
-            int _numTriangles, PolyLineBuilder& _ctx) {
-
-    // Find angle difference
-    float cross = _nA.x * _nB.y - _nA.y * _nB.x; // z component of cross(_CA, _CB)
-    float angle = atan2f(cross, glm::dot(_nA, _nB));
-
-    int startIndex = _ctx.numVertices;
-
-    // Add center vertex
-    addPolyLineVertex(_pC, _nC, _uC, _ctx);
-
-    // Add vertex for point A
-    addPolyLineVertex(_pC, _nA, _uA, _ctx);
-
-    // Add radial vertices
-    glm::vec2 radial = _nA;
-    for (int i = 0; i < _numTriangles; i++) {
-        float frac = (i + 1)/(float)_numTriangles;
-        radial = glm::rotate(_nA, angle * frac);
-
-        glm::vec2 uv(0.0);
-        if (_ctx.useTexCoords) {
-            uv = (1.f - frac) * _uA + frac * _uB;
+// Add fan of triangles around _coord, with center vertex extrusion _ec, arc from extrusion _a to _b sweeping
+//  signed angle _sweep (positive is CCW); tex coord u is interpolated from _ua to _ub along arc
+static void addFan(const glm::vec2& _coord, const glm::vec2& _ec, float _uc, const glm::vec2& _a,
+                   const glm::vec2& _b, float _sweep, float _ua, float _ub, float _v, int _numTriangles,
+                   const glm::vec2& _texDir, PolyLineBuilder& _ctx) {
+    uint16_t center = addPolyLineVertex(_coord, _ec, _uc, _v, _texDir, _ctx);
+    uint16_t prev = addPolyLineVertex(_coord, _a, _ua, _v, _texDir, _ctx);
+    for (int ii = 1; ii <= _numTriangles; ii++) {
+        float frac = ii/float(_numTriangles);
+        glm::vec2 radial = ii < _numTriangles ? glm::rotate(_a, frac*_sweep) : _b;
+        uint16_t next = addPolyLineVertex(_coord, radial, (1.f - frac)*_ua + frac*_ub, _v, _texDir, _ctx);
+        // keep same (CCW) winding as quads
+        if (_sweep > 0) {
+            _ctx.indices.insert(_ctx.indices.end(), { center, prev, next });
+        } else {
+            _ctx.indices.insert(_ctx.indices.end(), { center, next, prev });
         }
-
-        addPolyLineVertex(_pC, radial, uv, _ctx);
-
-        // Add indices
-        _ctx.indices.push_back(startIndex); // center vertex
-        _ctx.indices.push_back(startIndex + i + (angle > 0 ? 1 : 2));
-        _ctx.indices.push_back(startIndex + i + (angle > 0 ? 2 : 1));
+        prev = next;
     }
-
-}
-
-// Function to add the vertices for line caps
-static void addCap(const glm::vec2& _coord, const glm::vec2& _normal, int _numCorners, bool _isBeginning, PolyLineBuilder& _ctx) {
-
-    float v = _isBeginning ? 0.f : 1.f; // length-wise tex coord
-
-    if (_numCorners < 1) {
-        // "Butt" cap needs no extra vertices
-        return;
-    } else if (_numCorners == 2) {
-        // "Square" cap needs two extra vertices
-        glm::vec2 tangent(-_normal.y, _normal.x);
-        addPolyLineVertex(_coord, _normal + tangent, {0.f, v}, _ctx);
-        addPolyLineVertex(_coord, -_normal + tangent, {0.f, v}, _ctx);
-        if (!_isBeginning) { // At the beginning of a line we can't form triangles with previous vertices
-            indexPairs(1, _ctx.numVertices, _ctx.indices);
-        }
-        return;
-    }
-
-    // "Round" cap type needs a fan of vertices
-    glm::vec2 nA(_normal), nB(-_normal), nC(0.f, 0.f), uA(1.f, v), uB(0.f, v), uC(0.5f, v);
-    if (_isBeginning) {
-        nA *= -1.f; // To flip the direction of the fan, we negate the normal vectors
-        nB *= -1.f;
-        uA.x = 0.f; // To keep tex coords consistent, we must reverse these too
-        uB.x = 1.f;
-    }
-    addFan(_coord, nA, nB, nC, uA, uB, uC, _numCorners, _ctx);
 }
 
 static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_t _startIndex,
-                          size_t _endIndex, bool startCap = true, bool endCap = true) {
-
-    float distance = 0; // Cumulative distance along the polyline.
+                                 size_t _endIndex, bool startCap = true, bool endCap = true) {
 
     size_t origLineSize = _line.size();
-
     // endIndex/startIndex could be wrapped values, calculate lineSize accordingly
-    int lineSize = (int)((_endIndex > _startIndex) ?
-                   (_endIndex - _startIndex) :
-                   (origLineSize - _startIndex + _endIndex));
-    if (lineSize < 2) { return; }
+    size_t lineSize = (_endIndex > _startIndex) ?
+                      (_endIndex - _startIndex) : (origLineSize - _startIndex + _endIndex);
 
-    glm::vec2 coordCurr(_line[_startIndex]);
-    // get the Point using wrapped index in the original line geometry
-    glm::vec2 coordNext(_line[(_startIndex + 1) % origLineSize]);
-    glm::vec2 normPrev, normNext, miterVec;
-
-    int cornersOnCap = (int)_ctx.cap;
-    int trianglesOnJoin = (int)_ctx.join;
-
-    // Process first point in line with an end cap
-    normNext = glm::normalize(perp2d(coordCurr, coordNext));
-
-    if (startCap) {
-        addCap(coordCurr, normNext, cornersOnCap, true, _ctx);
+    // get points using wrapped index in the original line geometry, dropping repeated points
+    auto& pts = _ctx.points;
+    pts.clear();
+    for (size_t ii = 0; ii < lineSize; ii++) {
+        glm::vec2 p = _line[(_startIndex + ii) % origLineSize];
+        if (pts.empty() || p != pts.back()) { pts.push_back(p); }
     }
-    addPolyLineVertex(coordCurr, normNext, {1.0f, 0.0f}, _ctx); // right corner
-    addPolyLineVertex(coordCurr, -normNext, {0.0f, 0.0f}, _ctx); // left corner
+    if (pts.size() < 2) { return; }
 
+    const bool texCoords = _ctx.useTexCoords;
+    const float w = _ctx.maxWidth;
+    const float mlimsq = _ctx.miterLimit*_ctx.miterLimit;
+    const int capTriangles = int(_ctx.cap);
+    const int joinTriangles = _ctx.join == JoinTypes::round ? int(JoinTypes::round) : 1;
+    const float pi = 3.14159265358979f;
 
-    // Process intermediate points
-    for (int i = 1; i < lineSize - 1; i++) {
-        // get the Point using wrapped index in the original line geometry
-        int nextIndex = (i + _startIndex + 1) % origLineSize;
+    // "right" side normal n = t rotated -90 deg (CCW positive) has u = 1, left side (-n) has u = 0
+    float dist = 0;  // cumulative distance along the polyline
+    glm::vec2 d01 = pts[1] - pts[0];
+    float len01 = glm::length(d01);
+    glm::vec2 t01 = d01/len01;
+    glm::vec2 n01(t01.y, -t01.x);
+    // length at start of current segment, on right and left sides, taken by inner miter of previous join
+    float usedR = 0, usedL = 0;
 
-        distance += glm::distance(coordCurr, coordNext);
-
-        coordCurr = coordNext;
-        coordNext = _line[nextIndex];
-
-        if (coordCurr == coordNext) {
-            continue;
+    // first point, with start cap
+    glm::vec2 p0 = pts[0];
+    uint16_t r0, l0;
+    if (startCap && _ctx.cap == CapTypes::square) {
+        uint16_t rc = addPolyLineVertex(p0, n01 - t01, 1.f, dist, t01, _ctx);
+        uint16_t lc = addPolyLineVertex(p0, -n01 - t01, 0.f, dist, t01, _ctx);
+        r0 = addPolyLineVertex(p0, n01, 1.f, dist, t01, _ctx);
+        l0 = addPolyLineVertex(p0, -n01, 0.f, dist, t01, _ctx);
+        addQuad(rc, lc, r0, l0, _ctx);
+    } else {
+        if (startCap && _ctx.cap == CapTypes::round) {
+            addFan(p0, {0, 0}, 0.5f, n01, -n01, -pi, 1.f, 0.f, dist, capTriangles, t01, _ctx);
         }
+        r0 = addPolyLineVertex(p0, n01, 1.f, dist, t01, _ctx);
+        l0 = addPolyLineVertex(p0, -n01, 0.f, dist, t01, _ctx);
+    }
 
-        normPrev = normNext;
-        normNext = glm::normalize(perp2d(coordCurr, coordNext));
+    // intermediate points (joins)
+    for (size_t ii = 1; ii + 1 < pts.size(); ii++) {
+        const glm::vec2& p1 = pts[ii];
+        glm::vec2 d12 = pts[ii+1] - p1;
+        float len12 = glm::length(d12);
+        glm::vec2 t12 = d12/len12;
+        glm::vec2 n12(t12.y, -t12.x);
+        dist += len01;
 
-        // Compute "normal" for miter joint
-        miterVec = normPrev + normNext;
+        // miter extrusion (on right side); length is 1/cos(turn/2) and tangential component is tan(turn/2)
+        float miterDenom = 1.f + glm::dot(n01, n12);
+        bool miterOk = miterDenom > 1e-6f;
+        glm::vec2 miter = (n01 + n12)/std::max(miterDenom, 1e-6f);
+        float miterLenSq = glm::dot(miter, miter);
+        float miterTan = std::abs(glm::dot(miter, t01));
 
-        float scale = 1.f;
+        // outer side is right side (+n) for left (CCW) turn
+        float sO = (t01.x*t12.y - t01.y*t12.x) > 0 ? 1.f : -1.f;
+        float& usedI = sO > 0 ? usedL : usedR;
+        // inner side uses the miter point unless it would extend past the end of either adjacent segment (or
+        //  the inner miter point of previous join), in which case inner side has (overlapping) butt ends
+        bool innerMiter = miterOk && (w > 0 ? (w*miterTan + usedI <= len01 && w*miterTan <= len12)
+                                            : miterLenSq <= mlimsq);
+        // miter outer join if requested and within miter limit, otherwise bevel or round
+        bool outerMiter = miterOk && _ctx.join == JoinTypes::miter && miterLenSq <= mlimsq;
 
-        // normPrev and normNext are in the opposite direction
-        // in order to prevent NaN values, we use the perp
-        // vector of those two vectors
-        if (miterVec == glm::zero<glm::vec2>()) {
-            miterVec = perp2d(glm::vec3(normNext, 0.f), glm::vec3(normPrev, 0.f));
-        } else {
-            scale = 2.f / glm::dot(miterVec, miterVec);
-        }
+        glm::vec2 eI01 = innerMiter ? -sO*miter : -sO*n01;
+        glm::vec2 eI12 = innerMiter ? -sO*miter : -sO*n12;
+        glm::vec2 eO01 = outerMiter ? sO*miter : sO*n01;
+        glm::vec2 eO12 = outerMiter ? sO*miter : sO*n12;
+        glm::vec2 eR01 = sO > 0 ? eO01 : eI01, eL01 = sO > 0 ? eI01 : eO01;
+        glm::vec2 eR12 = sO > 0 ? eO12 : eI12, eL12 = sO > 0 ? eI12 : eO12;
 
-        miterVec *= scale;
+        // for shallow miter joins (most joins in typical map data), vertices are shared between segments and
+        //  use bisector for tex coord direction (vshift = 0), with small distortion of texture (max shift of
+        //  maxSharedVShift * width)
+        const float maxSharedVShift = 0.1f;
+        bool shareMiter = outerMiter && innerMiter && miterTan <= maxSharedVShift;
+        glm::vec2 bisect = t01 + t12;
+        float bisectLen = glm::length(bisect);
+        bisect = bisectLen > 1e-6f ? bisect/bisectLen : t01;
 
-        if (glm::length2(miterVec) > glm::length2(_ctx.miterLimit)) {
-            trianglesOnJoin = 1;
-            miterVec *= _ctx.miterLimit / glm::length(miterVec);
-        }
+        // end of segment 01
+        uint16_t r1 = addPolyLineVertex(p1, eR01, 1.f, dist, shareMiter ? bisect : t01, _ctx);
+        uint16_t l1 = addPolyLineVertex(p1, eL01, 0.f, dist, shareMiter ? bisect : t01, _ctx);
+        addQuad(r0, l0, r1, l1, _ctx);
 
-        float v = distance;
-
-        if (trianglesOnJoin == 0) {
-            // Join type is a simple miter
-
-            addPolyLineVertex(coordCurr, miterVec, {1.0, v}, _ctx); // right corner
-            addPolyLineVertex(coordCurr, -miterVec, {0.0, v}, _ctx); // left corner
-            indexPairs(1, _ctx.numVertices, _ctx.indices);
-
-        } else {
-
-            // Join type is a fan of triangles
-
-            bool isRightTurn = (normNext.x * normPrev.y - normNext.y * normPrev.x) > 0; // z component of cross(normNext, normPrev)
-
-            if (isRightTurn) {
-
-                addPolyLineVertex(coordCurr, miterVec, {1.0f, v}, _ctx); // right (inner) corner
-                addPolyLineVertex(coordCurr, -normPrev, {0.0f, v}, _ctx); // left (outer) corner
-                indexPairs(1, _ctx.numVertices, _ctx.indices);
-
-                addFan(coordCurr, -normPrev, -normNext, miterVec, {0.f, v}, {0.f, v}, {1.f, v}, trianglesOnJoin, _ctx);
-
-                addPolyLineVertex(coordCurr, miterVec, {1.0f, v}, _ctx); // right (inner) corner
-                addPolyLineVertex(coordCurr, -normNext, {0.0f, v}, _ctx); // left (outer) corner
-
+        // join
+        if (!outerMiter) {
+            glm::vec2 a = sO*n01, b = sO*n12;
+            float sweep = sO*std::acos(std::min(1.f, std::max(-1.f, glm::dot(a, b))));
+            float uO = sO > 0 ? 1.f : 0.f;
+            if (innerMiter) {
+                addFan(p1, -sO*miter, 1.f - uO, a, b, sweep, uO, uO, dist, joinTriangles, bisect, _ctx);
             } else {
-
-                addPolyLineVertex(coordCurr, normPrev, {1.0f, v}, _ctx); // right (outer) corner
-                addPolyLineVertex(coordCurr, -miterVec, {0.0f, v}, _ctx); // left (inner) corner
-                indexPairs(1, _ctx.numVertices, _ctx.indices);
-
-                addFan(coordCurr, normPrev, normNext, -miterVec, {1.f, v}, {1.f, v}, {0.0f, v}, trianglesOnJoin, _ctx);
-
-                addPolyLineVertex(coordCurr, normNext, {1.0f, v}, _ctx); // right (outer) corner
-                addPolyLineVertex(coordCurr, -miterVec, {0.0f, v}, _ctx); // left (inner) corner
+                addFan(p1, {0, 0}, 0.5f, a, b, sweep, uO, uO, dist, joinTriangles, bisect, _ctx);
             }
         }
+
+        // start of segment 12 - share vertices with end of segment 01 if possible
+        auto canShare = [&](const glm::vec2& e01, const glm::vec2& e12) {
+            return (!texCoords || shareMiter) && e01 == e12;
+        };
+        r0 = canShare(eR01, eR12) ? r1 : addPolyLineVertex(p1, eR12, 1.f, dist, t12, _ctx);
+        l0 = canShare(eL01, eL12) ? l1 : addPolyLineVertex(p1, eL12, 0.f, dist, t12, _ctx);
+
+        usedI = innerMiter ? w*miterTan : 0;
+        (sO > 0 ? usedR : usedL) = 0;
+        t01 = t12;
+        n01 = n12;
+        len01 = len12;
     }
 
-    distance += glm::distance(coordCurr, coordNext);
-
-    // Process last point in line with a cap
-    addPolyLineVertex(coordNext, normNext, {1.f, distance}, _ctx); // right corner
-    addPolyLineVertex(coordNext, -normNext, {0.f, distance}, _ctx); // left corner
-    indexPairs(1, _ctx.numVertices, _ctx.indices);
-    if (endCap) {
-        addCap(coordNext, normNext, cornersOnCap, false, _ctx);
+    // last point, with end cap
+    dist += len01;
+    glm::vec2 p1 = pts.back();
+    uint16_t r1 = addPolyLineVertex(p1, n01, 1.f, dist, t01, _ctx);
+    uint16_t l1 = addPolyLineVertex(p1, -n01, 0.f, dist, t01, _ctx);
+    addQuad(r0, l0, r1, l1, _ctx);
+    if (endCap && _ctx.cap == CapTypes::square) {
+        uint16_t rc = addPolyLineVertex(p1, n01 + t01, 1.f, dist, t01, _ctx);
+        uint16_t lc = addPolyLineVertex(p1, -n01 + t01, 0.f, dist, t01, _ctx);
+        addQuad(r1, l1, rc, lc, _ctx);
+    } else if (endCap && _ctx.cap == CapTypes::round) {
+        addFan(p1, {0, 0}, 0.5f, -n01, n01, -pi, 0.f, 1.f, dist, capTriangles, t01, _ctx);
     }
-
 }
 
 void Builders::buildPolyLine(const Line& _line, PolyLineBuilder& _ctx) {
