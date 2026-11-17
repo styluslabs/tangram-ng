@@ -24,9 +24,6 @@ struct TestMesh : public Mesh<Vertex> {
 
     GLsizei getDirtySize() const { return m_dirtySize; }
     GLintptr getDirtyOffset() const { return m_dirtyOffset; }
-
-    int numVertices() const { return m_nVertices; }
-    int numIndices() const { return m_nIndices; }
 };
 
 std::shared_ptr<TestMesh> newMesh(unsigned int size) {

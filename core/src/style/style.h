@@ -68,6 +68,9 @@ enum class RasterType : uint8_t {
 struct StyledMesh {
     virtual bool draw(RenderState& rs, ShaderProgram& _shader, bool _useVao = true) = 0;
     virtual size_t bufferSize() const = 0;
+    // for stats (0 if not applicable)
+    virtual size_t numVertices() const { return 0; }
+    virtual size_t numIndices() const { return 0; }
 
     virtual ~StyledMesh() {}
 };

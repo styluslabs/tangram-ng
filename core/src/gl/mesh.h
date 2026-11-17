@@ -147,6 +147,9 @@ public:
         return MeshBase::bufferSize();
     }
 
+    size_t numVertices() const override { return m_nVertices; }
+    size_t numIndices() const override { return m_nIndices; }
+
     bool draw(RenderState& rs, ShaderProgram& shader, bool useVao = true) override {
         return MeshBase::draw(rs, shader, useVao);
     }
