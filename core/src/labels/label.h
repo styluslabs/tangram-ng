@@ -56,6 +56,7 @@ public:
 
     struct Options {
         glm::vec2 offset;
+        float radialOffset = 0;  // distance along the current anchor's direction (scalar `offset` in style)
         glm::vec2 buffer;
         float priority = std::numeric_limits<float>::max();
         bool collide = true;
@@ -201,6 +202,7 @@ namespace std {
             std::size_t seed = 0;
             hash_combine(seed, o.offset.x);
             hash_combine(seed, o.offset.y);
+            hash_combine(seed, o.radialOffset);
             hash_combine(seed, o.priority);
             hash_combine(seed, o.collide);
             hash_combine(seed, o.repeatDistance);

@@ -594,7 +594,7 @@ void TextStyleBuilder::addLineTextLabels(const Feature& _feat, const TextStyle::
         if (!addStraightTextLabels(line, _attributes.width, straightLabelCb) &&
             line.size() > 2 && !_params.hasComplexShaping &&
             // TODO: support line offset for curved labels
-            _params.labelOptions.offset == glm::vec2(0)) {
+            _params.labelOptions.offset == glm::vec2(0) && _params.labelOptions.radialOffset == 0) {
             addCurvedTextLabels(line, _params, _attributes, _rule);
         }
     }
@@ -686,8 +686,11 @@ TextStyle::Parameters TextStyleBuilder::applyRule(const DrawRule& _rule,
         if (!_rule.get(StyleParamKey::text_interactive, p.interactive)) {
             _rule.get(StyleParamKey::interactive, p.interactive);
         }
-        _rule.get(StyleParamKey::text_offset, p.labelOptions.offset);
+        if (!_rule.get(StyleParamKey::text_offset, p.labelOptions.offset)) {
+            _rule.get(StyleParamKey::text_offset, p.labelOptions.radialOffset);  // scalar offset
+        }
         p.labelOptions.offset *= m_style.pixelScale();
+        p.labelOptions.radialOffset *= m_style.pixelScale();
 
         _rule.get(StyleParamKey::text_anchor, p.labelOptions.anchors);
         if (p.labelOptions.anchors.count == 0) {
@@ -724,8 +727,11 @@ TextStyle::Parameters TextStyleBuilder::applyRule(const DrawRule& _rule,
         _rule.get(StyleParamKey::priority, p.labelOptions.priority);
         _rule.get(StyleParamKey::collide, p.labelOptions.collide);
         _rule.get(StyleParamKey::interactive, p.interactive);
-        _rule.get(StyleParamKey::offset, p.labelOptions.offset);
+        if (!_rule.get(StyleParamKey::offset, p.labelOptions.offset)) {
+            _rule.get(StyleParamKey::offset, p.labelOptions.radialOffset);  // scalar offset
+        }
         p.labelOptions.offset *= m_style.pixelScale();
+        p.labelOptions.radialOffset *= m_style.pixelScale();
 
         _rule.get(StyleParamKey::anchor, p.labelOptions.anchors);
         if (p.labelOptions.anchors.count == 0) {

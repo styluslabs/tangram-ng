@@ -72,7 +72,7 @@ SpriteLabel::SpriteLabel(Coordinates _coordinates, float _zoom, glm::vec2 _size,
 
 void SpriteLabel::applyAnchor(LabelProperty::Anchor _anchor) {
 
-    m_anchor = LabelProperty::anchorDirection(_anchor) * m_dim * 0.5f;
+    m_anchor = LabelProperty::anchorDirection(_anchor) * (m_dim * 0.5f + m_options.radialOffset);
 }
 
 bool SpriteLabel::setElevation(ElevationManager& elevMgr, glm::dvec2 origin, double scale) {
@@ -134,7 +134,7 @@ bool SpriteLabel::updateScreenTransform(const glm::mat4& _mvp, const ViewState& 
     } else {
 
         if (_bounds) {
-            auto aabb = m_options.anchors.extents(m_dim);
+            auto aabb = m_options.anchors.extents(m_dim + 2*m_options.radialOffset);  // conservative
             aabb.min += pos;
             aabb.max += pos;
             if (!aabb.intersect(*_bounds)) { return false; }

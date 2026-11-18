@@ -134,8 +134,11 @@ auto PointStyleBuilder::applyRule(const DrawRule& _rule) const -> Parameters {
     }
 
     _rule.get(StyleParamKey::sprite, p.sprite);
-    _rule.get(StyleParamKey::offset, p.labelOptions.offset);
+    if (!_rule.get(StyleParamKey::offset, p.labelOptions.offset)) {
+        _rule.get(StyleParamKey::offset, p.labelOptions.radialOffset);  // scalar offset
+    }
     p.labelOptions.offset *= m_style.pixelScale();
+    p.labelOptions.radialOffset *= m_style.pixelScale();
     _rule.get(StyleParamKey::buffer, p.labelOptions.buffer);
 
     std::string repeatGroup;

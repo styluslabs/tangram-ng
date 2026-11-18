@@ -66,7 +66,7 @@ void TextLabel::applyAnchor(Anchor _anchor) {
     glm::vec2 offset = m_dim;
     if (isChild()) { offset += m_relative->dimension(); }
 
-    m_anchor = LabelProperty::anchorDirection(_anchor) * offset * 0.5f;
+    m_anchor = LabelProperty::anchorDirection(_anchor) * (offset * 0.5f + m_options.radialOffset);
 }
 
 bool TextLabel::setElevation(ElevationManager& elevMgr, glm::dvec2 origin, double scale) {
@@ -95,7 +95,7 @@ bool TextLabel::updateScreenTransform(const glm::mat4& _mvp, const ViewState& _v
             if (clipped || screenPosition.z > 1.0f) { return false; }  // beyond far plane if NDC z > 1
 
             if (_bounds) {
-                auto aabb = m_options.anchors.extents(m_dim);
+                auto aabb = m_options.anchors.extents(m_dim + 2*m_options.radialOffset);  // conservative
                 aabb.min += glm::vec2(screenPosition) + m_options.offset;
                 aabb.max += glm::vec2(screenPosition) + m_options.offset;
                 if (!aabb.intersect(*_bounds)) { return false; }

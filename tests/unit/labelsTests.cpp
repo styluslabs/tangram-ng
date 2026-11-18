@@ -130,8 +130,10 @@ public:
 };
 
 // 10x10 point label with given anchors (in fallback order)
-TextLabel makePointLabel(glm::vec2 _transform, std::vector<LabelProperty::Anchor> _anchors) {
+TextLabel makePointLabel(glm::vec2 _transform, std::vector<LabelProperty::Anchor> _anchors,
+                         float _radialOffset = 0) {
     Label::Options options;
+    options.radialOffset = _radialOffset;
     for (size_t ii = 0; ii < _anchors.size(); ++ii) { options.anchors.anchor[ii] = _anchors[ii]; }
     options.anchors.count = _anchors.size();
     return TextLabel({{glm::vec3(_transform, 0)}}, Label::Type::point, options,
@@ -309,6 +311,93 @@ TEST_CASE( "Attached label follows parent anchor", "[Labels][AnchorFallback]" ) 
         REQUIRE(child.anchorType() == Anchor::left);
         REQUIRE(cc.x == Approx(c0.x - 15));
         REQUIRE(cc.y == Approx(c0.y));
+    }
+}
+
+// radial offset (scalar `offset`) pushes label away from point along its current anchor's direction, incl.
+//  fallback anchors; attached text follows parent's radial offset and adds its own relative to parent
+TEST_CASE( "Radial offset follows anchor", "[Labels][AnchorFallback]" ) {
+
+    View view(256, 256);
+    view.setConstrainToWorldBounds(false);
+    view.setPosition(0, 0);
+    view.setZoom(0);
+    view.update();
+
+    Tile tile({0,0,0});
+    tile.update(view, 0);
+
+    using Anchor = LabelProperty::Anchor;
+    const float px = 1.f/256;
+
+    // first anchor (right), radial 4 on parent, 2 on child: parent [4, 14], child [16, 26]
+    {
+        TestLabels labels(view);
+        TextLabel parent = makePointLabel({0.5, 0.5}, {Anchor::right, Anchor::left}, 4);
+        auto& tp = labels.addLabel(&parent, &tile);
+        parent.update(tile.mvp(), view.state(), bounds, tp);
+
+        TextLabel child = makePointLabel({0.5, 0.5}, {Anchor::right, Anchor::left}, 2);
+        child.setRelative(parent, false, false);
+        auto& tc = labels.addLabel(&child, &tile);
+        child.update(tile.mvp(), view.state(), bounds, tc);
+
+        labels.run(view);
+        REQUIRE(!parent.isOccluded());
+        REQUIRE(!child.isOccluded());
+        REQUIRE(parent.anchorType() == Anchor::right);
+
+        glm::vec2 c0 = parent.screenCenter();
+        glm::vec2 pc = obbCenter(parent, tp), cc = obbCenter(child, tc);
+        REQUIRE(pc.x == Approx(c0.x + 9));
+        REQUIRE(pc.y == Approx(c0.y));
+        REQUIRE(cc.x == Approx(c0.x + 21));
+        REQUIRE(cc.y == Approx(c0.y));
+    }
+
+    // blocker right of point: parent falls back to left, so radial offset must push left: parent [-14, -4]
+    {
+        TestLabels labels(view);
+        TextLabel blocker = makePointLabel({0.5 + 12*px, 0.5}, {Anchor::center});
+        auto& tb = labels.addLabel(&blocker, &tile);
+        blocker.update(tile.mvp(), view.state(), bounds, tb);
+
+        TextLabel parent = makePointLabel({0.5, 0.5}, {Anchor::right, Anchor::left}, 4);
+        auto& tp = labels.addLabel(&parent, &tile);
+        parent.update(tile.mvp(), view.state(), bounds, tp);
+
+        TextLabel child = makePointLabel({0.5, 0.5}, {Anchor::left, Anchor::right}, 2);
+        child.setRelative(parent, false, false);
+        auto& tc = labels.addLabel(&child, &tile);
+        child.update(tile.mvp(), view.state(), bounds, tc);
+
+        labels.run(view);
+        REQUIRE(!blocker.isOccluded());
+        REQUIRE(!parent.isOccluded());
+        REQUIRE(!child.isOccluded());
+        REQUIRE(parent.anchorType() == Anchor::left);
+
+        glm::vec2 c0 = parent.screenCenter();
+        glm::vec2 pc = obbCenter(parent, tp), cc = obbCenter(child, tc);
+        REQUIRE(pc.x == Approx(c0.x - 9));
+        // child left of parent: [-26, -16]
+        REQUIRE(child.anchorType() == Anchor::left);
+        REQUIRE(cc.x == Approx(c0.x - 21));
+    }
+
+    // diagonal anchor: radial offset applies on both axes (box clears point by 4 in x and y)
+    {
+        TestLabels labels(view);
+        TextLabel label = makePointLabel({0.5, 0.5}, {Anchor::bottom_right}, 4);
+        auto& tl = labels.addLabel(&label, &tile);
+        label.update(tile.mvp(), view.state(), bounds, tl);
+
+        labels.run(view);
+        REQUIRE(!label.isOccluded());
+        glm::vec2 c0 = label.screenCenter();
+        glm::vec2 lc = obbCenter(label, tl);
+        REQUIRE(lc.x == Approx(c0.x + 9));
+        REQUIRE(std::abs(lc.y - c0.y) == Approx(9));
     }
 }
 

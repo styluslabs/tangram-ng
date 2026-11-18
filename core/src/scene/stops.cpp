@@ -159,7 +159,18 @@ auto Stops::Offsets(const YAML::Node& _node, UnitSet _units) -> Stops {
         }
         lastKey = key;
 
-        if (frameNode[1].IsSequence()) {
+        if (frameNode[1].IsScalar()) {
+            // scalar = radial offset
+            StyleParam::ValueUnitPair radial;
+            radial.unit = Unit::pixel;
+            if (!StyleParam::parseValueUnitPair(frameNode[1].Scalar(), radial) || !_units.contains(radial.unit)) {
+                LOGW("could not parse offset stop %s", Dump(frameNode[1]).c_str());
+            } else if (!stops.frames.empty() && !stops.frames.back().value.is<float>()) {
+                LOGW("Mixed radial (scalar) and [x, y] offset stops not allowed: %s", Dump(_node).c_str());
+            } else {
+                stops.frames.emplace_back(key, radial.value);
+            }
+        } else if (frameNode[1].IsSequence()) {
             std::vector<StyleParam::ValueUnitPair> widths;
             Unit lastUnit = Unit::pixel;
 
@@ -179,6 +190,10 @@ auto Stops::Offsets(const YAML::Node& _node, UnitSet _units) -> Stops {
             if (widths.size() == 2) {
                 if ( !_units.contains(widths[0].unit) && !_units.contains(widths[1].unit) ) {
                     LOGW("Non-pixel unit not allowed for multidimensionnal stop values");
+                }
+                if (!stops.frames.empty() && !stops.frames.back().value.is<glm::vec2>()) {
+                    LOGW("Mixed radial (scalar) and [x, y] offset stops not allowed: %s", Dump(_node).c_str());
+                    continue;
                 }
                 stops.frames.emplace_back(key, glm::vec2(widths[0].value, widths[1].value));
             }
@@ -419,7 +434,11 @@ void Stops::eval(const Stops& _stops, StyleParamKey _key, float _zoom, StylePara
     } else if (StyleParam::isWidth(_key)) {
         _result = _stops.evalExpFloat(_zoom);
     } else if (StyleParam::isOffsets(_key)) {
-        _result = _stops.evalVec2(_zoom);
+        if (!_stops.frames.empty() && _stops.frames[0].value.is<float>()) {
+            _result = _stops.evalFloat(_zoom);  // radial offset
+        } else {
+            _result = _stops.evalVec2(_zoom);
+        }
     } else {
         _result = _stops.evalFloat(_zoom);
     }

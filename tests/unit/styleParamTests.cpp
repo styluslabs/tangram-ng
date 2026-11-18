@@ -88,3 +88,22 @@ TEST_CASE("Correctly reject invalid Vec3", "[StyleParam]") {
         CHECK_FALSE(StyleParam::parseVec3(input, UnitSet{Unit::none, Unit::meter, Unit::pixel}, result));
     }
 }
+
+// scalar offset = radial offset (float), [x, y] offset = vec2; scalar buffer still means [v, v]
+TEST_CASE("Scalar offset parses as radial offset", "[StyleParam]") {
+    StyleParam::Value v = StyleParam::parseNode(StyleParamKey::offset, YAML::Load("5px"));
+    REQUIRE(v.is<float>());
+    REQUIRE(v.get<float>() == 5.f);
+
+    v = StyleParam::parseNode(StyleParamKey::text_offset, YAML::Load("3"));
+    REQUIRE(v.is<float>());
+    REQUIRE(v.get<float>() == 3.f);
+
+    v = StyleParam::parseNode(StyleParamKey::offset, YAML::Load("[1px, -2px]"));
+    REQUIRE(v.is<glm::vec2>());
+    REQUIRE(v.get<glm::vec2>() == glm::vec2(1, -2));
+
+    v = StyleParam::parseNode(StyleParamKey::buffer, YAML::Load("4px"));
+    REQUIRE(v.is<glm::vec2>());
+    REQUIRE(v.get<glm::vec2>() == glm::vec2(4, 4));
+}

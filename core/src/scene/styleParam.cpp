@@ -164,6 +164,8 @@ StyleParam::Value StyleParam::parseNode(StyleParamKey key, const YAML::Node& nod
     case StyleParamKey::buffer: {
         ValueUnitPair scalar;
         if (node.IsScalar() && (parseValueUnitPair(node.Scalar(), scalar) && allowedUnits.contains(scalar.unit))) {
+            // scalar offset is a radial offset: distance along the direction of the label's (current) anchor
+            if (isOffsets(key)) { return scalar.value; }
             return glm::vec2(scalar.value);
         }
         UnitVec<glm::vec2> vec;
@@ -425,6 +427,7 @@ std::string StyleParam::toString() const {
         break;
     case StyleParamKey::offset:
     case StyleParamKey::text_offset: {
+        if (value.is<float>()) { return k + "(radial " + std::to_string(value.get<float>()) + "px)"; }
         if (!value.is<glm::vec2>()) break;
         auto p = value.get<glm::vec2>();
         return k + "(" + std::to_string(p.x) + "px, " + std::to_string(p.y) + "px)";

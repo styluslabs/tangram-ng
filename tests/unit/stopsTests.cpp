@@ -156,6 +156,30 @@ TEST_CASE("Regression test - Dont crash on evaluating empty stops", "[Stops][YAM
 
 }
 
+TEST_CASE("Offset stops: scalar = radial offset (float), mixing with [x, y] not allowed", "[Stops][YAML]") {
+    UnitSet units = StyleParam::unitSetForStyleParam(StyleParamKey::offset);
+
+    Stops stops(Stops::Offsets(YAML::Load("[[10, 2px], [12, 6px]]"), units));
+    REQUIRE(stops.frames.size() == 2);
+    StyleParam::Value v;
+    Stops::eval(stops, StyleParamKey::offset, 11, v);
+    REQUIRE(v.is<float>());
+    REQUIRE(v.get<float>() == Approx(4));
+
+    stops = Stops::Offsets(YAML::Load("[[10, [0px, 2px]], [12, [2px, 6px]]]"), units);
+    REQUIRE(stops.frames.size() == 2);
+    Stops::eval(stops, StyleParamKey::offset, 11, v);
+    REQUIRE(v.is<glm::vec2>());
+    REQUIRE(v.get<glm::vec2>().y == Approx(4));
+
+    // mixed: frames of the other kind than the first are dropped
+    stops = Stops::Offsets(YAML::Load("[[10, 2px], [12, [2px, 6px]], [14, 8px]]"), units);
+    REQUIRE(stops.frames.size() == 2);
+    REQUIRE(stops.frames[1].value.is<float>());
+    stops = Stops::Offsets(YAML::Load("[[10, [2px, 6px]], [12, 2px]]"), units);
+    REQUIRE(stops.frames.size() == 1);
+}
+
 TEST_CASE("Mixed dimension stops for StyleParam::size not allowed, exception of `%` and 2d", "[Stops][YAML]") {
 
     // 1d, 2d
