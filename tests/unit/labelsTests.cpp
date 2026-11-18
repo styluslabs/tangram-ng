@@ -1,6 +1,7 @@
 #include "catch.hpp"
 #include "gl/dynamicQuadMesh.h"
 #include "labels/labelManager.h"
+#include "labels/obbBuffer.h"
 #include "labels/textLabel.h"
 #include "labels/textLabels.h"
 #include "map.h"
@@ -101,6 +102,50 @@ TEST_CASE("Test getFeaturesAtPoint", "[Labels][FeaturePicking]") {
 }
 #endif
 
+struct TestTransform {
+    ScreenTransform transform;
+    TestTransform(ScreenTransform::Buffer& _buffer, Range& _range) : transform(_buffer, _range) {}
+};
+
+// runs LabelManager::handleOcclusions() on labels in insertion order (stands in for priority order)
+class TestLabels : public LabelManager {
+public:
+    TestLabels(View& _v) {
+        m_isect2d.resize({1, 1}, {_v.getWidth(), _v.getHeight()});
+        // returned transforms reference entries of both vectors, so they must not reallocate
+        m_labels.reserve(16);
+        tmpTransforms.reserve(16);
+    }
+
+    ScreenTransform& addLabel(Label* _l, Tile* _t) {
+        m_labels.push_back({_l, nullptr, _t, nullptr, false, {}});
+        tmpTransforms.emplace_back(m_transforms, m_labels.back().transformRange);
+        return tmpTransforms.back().transform;
+    }
+    void run(View& _v) { handleOcclusions(_v.state()); }
+    void clear() { m_labels.clear(); }
+
+    std::vector<TestTransform> tmpTransforms;
+
+};
+
+// 10x10 point label with given anchors (in fallback order)
+TextLabel makePointLabel(glm::vec2 _transform, std::vector<LabelProperty::Anchor> _anchors) {
+    Label::Options options;
+    for (size_t ii = 0; ii < _anchors.size(); ++ii) { options.anchors.anchor[ii] = _anchors[ii]; }
+    options.anchors.count = _anchors.size();
+    return TextLabel({{glm::vec3(_transform, 0)}}, Label::Type::point, options,
+            {}, {10, 10}, dummy, {}, TextLabelProperty::Align::none);
+}
+
+glm::vec2 obbCenter(const Label& _l, ScreenTransform& _transform) {
+    std::vector<isect2d::OBB<glm::vec2>> obbs;
+    Range range;
+    OBBBuffer buffer{obbs, range};
+    _l.obbs(_transform, buffer);
+    return obbs.at(range.start).getCentroid();
+}
+
 TEST_CASE( "Test anchor fallback behavior", "[Labels][AnchorFallback]" ) {
 
     View view(256, 256);
@@ -111,29 +156,6 @@ TEST_CASE( "Test anchor fallback behavior", "[Labels][AnchorFallback]" ) {
 
     Tile tile({0,0,0});
     tile.update(view, 0);
-
-    struct TestTransform {
-        ScreenTransform transform;
-        TestTransform(ScreenTransform::Buffer& _buffer, Range& _range) : transform(_buffer, _range) {}
-    };
-
-    class TestLabels : public LabelManager {
-    public:
-        TestLabels(View& _v) {
-            m_isect2d.resize({1, 1}, {_v.getWidth(), _v.getHeight()});
-        }
-
-        ScreenTransform& addLabel(Label* _l, Tile* _t) {
-            m_labels.push_back({_l, nullptr, _t, nullptr, false, {}});
-            tmpTransforms.emplace_back(m_transforms, m_labels.back().transformRange);
-            return tmpTransforms.back().transform;
-        }
-        void run(View& _v) { handleOcclusions(_v.state()); }
-        void clear() { m_labels.clear(); }
-
-        std::vector<TestTransform> tmpTransforms;
-
-    };
 
     {
         TestLabels labels(view);
@@ -216,4 +238,78 @@ TEST_CASE( "Test anchor fallback behavior", "[Labels][AnchorFallback]" ) {
     }
 
 }
+// attached label (e.g. text attached to an icon) must be placed relative to its parent's current anchor,
+//  including the anchor chosen by fallback, not as if the parent were centered on the point
+TEST_CASE( "Attached label follows parent anchor", "[Labels][AnchorFallback]" ) {
+
+    View view(256, 256);
+    view.setConstrainToWorldBounds(false);
+    view.setPosition(0, 0);
+    view.setZoom(0);
+    view.update();
+
+    Tile tile({0,0,0});
+    tile.update(view, 0);
+
+    using Anchor = LabelProperty::Anchor;
+    const float px = 1.f/256;  // 1 tile unit = 256 px
+
+    // parent at its first anchor (right): child to the right of parent
+    {
+        TestLabels labels(view);
+        TextLabel parent = makePointLabel({0.5, 0.5}, {Anchor::right, Anchor::left});
+        auto& tp = labels.addLabel(&parent, &tile);
+        parent.update(tile.mvp(), view.state(), bounds, tp);
+
+        TextLabel child = makePointLabel({0.5, 0.5}, {Anchor::right});
+        child.setRelative(parent, false, false);
+        auto& tc = labels.addLabel(&child, &tile);
+        child.update(tile.mvp(), view.state(), bounds, tc);
+
+        labels.run(view);
+        REQUIRE(!parent.isOccluded());
+        REQUIRE(!child.isOccluded());
+        REQUIRE(parent.anchorType() == Anchor::right);
+
+        glm::vec2 c0 = parent.screenCenter();
+        glm::vec2 pc = obbCenter(parent, tp), cc = obbCenter(child, tc);
+        REQUIRE(pc.x == Approx(c0.x + 5));
+        // parent occupies [0, 10] right of point, so child centered at 15 (was 10, overlapping parent)
+        REQUIRE(cc.x == Approx(c0.x + 15));
+        REQUIRE(cc.y == Approx(c0.y));
+    }
+
+    // blocker right of point: parent falls back to left; child must follow and avoid the blocker
+    {
+        TestLabels labels(view);
+        // 10x10 centered 12px right of point: [7, 17]
+        TextLabel blocker = makePointLabel({0.5 + 12*px, 0.5}, {Anchor::center});
+        auto& tb = labels.addLabel(&blocker, &tile);
+        blocker.update(tile.mvp(), view.state(), bounds, tb);
+
+        TextLabel parent = makePointLabel({0.5, 0.5}, {Anchor::right, Anchor::left});
+        auto& tp = labels.addLabel(&parent, &tile);
+        parent.update(tile.mvp(), view.state(), bounds, tp);
+
+        TextLabel child = makePointLabel({0.5, 0.5}, {Anchor::right, Anchor::left});
+        child.setRelative(parent, false, false);
+        auto& tc = labels.addLabel(&child, &tile);
+        child.update(tile.mvp(), view.state(), bounds, tc);
+
+        labels.run(view);
+        REQUIRE(!blocker.isOccluded());
+        REQUIRE(!parent.isOccluded());
+        REQUIRE(!child.isOccluded());
+        REQUIRE(parent.anchorType() == Anchor::left);
+
+        glm::vec2 c0 = parent.screenCenter();
+        glm::vec2 pc = obbCenter(parent, tp), cc = obbCenter(child, tc);
+        REQUIRE(pc.x == Approx(c0.x - 5));
+        // child right of parent ([0, 10]) hits blocker, so falls back to left of parent: [-20, -10]
+        REQUIRE(child.anchorType() == Anchor::left);
+        REQUIRE(cc.x == Approx(c0.x - 15));
+        REQUIRE(cc.y == Approx(c0.y));
+    }
+}
+
 }

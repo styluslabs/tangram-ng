@@ -196,7 +196,11 @@ void TextLabel::obbs(ScreenTransform& _transform, OBBBuffer& _obbs) const {
     auto rotation = pointTransform.rotation();
 
     auto position = pointTransform.position();
-    if (m_type != Type::line) { position += m_anchor; }
+    if (m_type != Type::line) {
+        position += m_anchor;
+        // follow parent's current anchor (fallback), e.g. text beside an icon that's beside the point
+        if (isChild()) { position += m_relative->anchorOffset(); }
+    }
 
     auto obb = OBB(position, glm::vec2{rotation.x, -rotation.y}, dim.x, dim.y);
 
@@ -227,7 +231,11 @@ void TextLabel::addVerticesToMesh(ScreenTransform& _transform, const glm::vec2& 
     bool rotate = (rotation.x != 1.f);
 
     glm::vec2 screenPosition = transform.position();
-    if (m_type != Type::line) { screenPosition += m_anchor; }
+    if (m_type != Type::line) {
+        screenPosition += m_anchor;
+        // follow parent's current anchor (fallback), e.g. text beside an icon that's beside the point
+        if (isChild()) { screenPosition += m_relative->anchorOffset(); }
+    }
 
     glm::i16vec2 sp = glm::i16vec2(screenPosition * TextVertex::position_scale);
     std::array<glm::i16vec2, 4> vertexPosition;

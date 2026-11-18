@@ -143,6 +143,9 @@ public:
 
     int anchorIndex() { return m_anchorIndex; }
 
+    // screen offset from anchor point for current anchor (attached labels add their parent's)
+    glm::vec2 anchorOffset() const { return m_anchor; }
+
     bool nextAnchor();
 
     bool setAnchorIndex(int _index);
