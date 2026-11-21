@@ -113,6 +113,10 @@ void PolylineStyle::onBeginDrawFrame(RenderState& rs, const View& _view) {
         m_shaderProgram->setUniformi(rs, m_uTexture, textureUnit);
         m_shaderProgram->setUniformf(rs, m_uTextureRatio, m_texture->height() / m_texture->width());
     }
+
+    if (m_dashArray.size() > 0) {
+        m_shaderProgram->setUniformf(rs, m_uDashBackgroundColor, m_dashBackgroundColor);
+    }
 }
 
 void PolylineStyle::setDashBackgroundColor(const glm::vec4 _dashBackgroundColor) {
@@ -134,12 +138,6 @@ void PolylineStyle::constructShaderProgram() {
         m_texture->setPixelData(1, pixels.size(), sizeof(GLuint),
                                 reinterpret_cast<GLubyte*>(pixels.data()),
                                 pixels.size() * sizeof(GLuint));
-
-        m_shaderSource->addSourceBlock("defines", "#define TANGRAM_LINE_BACKGROUND_COLOR vec4(" +
-                                                  ff::to_string(m_dashBackgroundColor.r) + ", " +
-                                                  ff::to_string(m_dashBackgroundColor.g) + ", " +
-                                                  ff::to_string(m_dashBackgroundColor.b) + ", " +
-                                                  ff::to_string(m_dashBackgroundColor.a) + ")\n");
     }
 
     if (m_dashArray.size() > 0 || m_texture) {

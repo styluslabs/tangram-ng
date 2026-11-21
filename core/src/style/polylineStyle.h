@@ -31,6 +31,7 @@ private:
 
     UniformLocation m_uTexture{"u_texture"};
     UniformLocation m_uTextureRatio{"u_texture_ratio"};
+    UniformLocation m_uDashBackgroundColor{"u_dash_background_color"};
 };
 
 }

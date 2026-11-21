@@ -20,6 +20,10 @@ uniform float u_device_pixel_ratio;
 uniform float u_texture_ratio;
 uniform sampler2D u_texture;
 
+#ifdef TANGRAM_LINE_DASH
+    uniform vec4 u_dash_background_color;
+#endif
+
 #pragma tangram: uniforms
 
 varying vec4 v_world_position;
@@ -69,7 +73,7 @@ void main(void) {
         vec4 line_color = texture2D(u_texture, line_st);
 
         #if defined(TANGRAM_LINE_DASH)
-            color = mix(TANGRAM_LINE_BACKGROUND_COLOR, color, line_color.a);
+            color = mix(u_dash_background_color, color, line_color.a);
         #else
             color *= line_color;
         #endif
