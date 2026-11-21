@@ -320,8 +320,9 @@ bool LabelManager::priorityComparator(const LabelEntry& _a, const LabelEntry& _b
     if (_a.proxy != _b.proxy) {
         return _b.proxy;  // non-proxy over proxy
     }
-    float aprio = std::nearbyint(_a.priority);
-    float bprio = std::nearbyint(_b.priority);
+    // integer part of priority defines groups; fractional part only orders labels within a group (below)
+    float aprio = std::floor(_a.priority);
+    float bprio = std::floor(_b.priority);
     if (aprio != bprio) {
         return aprio < bprio;
     }
