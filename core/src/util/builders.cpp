@@ -307,8 +307,7 @@ static void buildPolyLineSegment(const Line& _line, PolyLineBuilder& _ctx, size_
 
         // for shallow miter joins (most joins in typical map data), vertices are shared between segments, w/
         //  small distortion of texture (max shift along the line of maxSharedMiterTan * width)
-        const float maxSharedMiterTan = 0.1f;
-        bool shareMiter = outerMiter && innerMiter && miterTan <= maxSharedMiterTan;
+        bool shareMiter = outerMiter && innerMiter && miterTan <= _ctx.maxSharedMiterTan;
         // other joins w/ tex coords: swept brush (see above) - butt ends and separate outer miter piece
         bool brush = texCoords && !shareMiter;
         if (brush) { innerMiter = false; }

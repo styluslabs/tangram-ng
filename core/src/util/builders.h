@@ -78,6 +78,9 @@ struct PolyLineBuilder {
     // max line half-width (in coordinate units) the mesh will be drawn with; inner miter joins longer than
     //  the adjacent segments are replaced with (overlapping) butt ends to prevent folding.  0 to disable
     float maxWidth = 0;
+    // shallow miter joins w/ tex coords share vertices between segments if tan(turn/2) <= maxSharedMiterTan;
+    //  this skews the texture along the line by up to maxSharedMiterTan * width (see buildPolyLine())
+    float maxSharedMiterTan = 0.1f;
     std::vector<glm::vec2> points;  // scratch
     CapTypes cap;
     JoinTypes join;

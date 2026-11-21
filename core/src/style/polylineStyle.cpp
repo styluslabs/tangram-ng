@@ -483,6 +483,19 @@ static float maxExtrudeWidth(glm::i16vec2 _width, float _overzoom2) {
     return wmax/_overzoom2;
 }
 
+// max on-screen half-width in pixels for map zoom from tile zoom to tile zoom + 1 (independent of overzoom)
+static float maxPixelWidth(glm::i16vec2 _width, float _tileUnitsPerPixel) {
+    float w0 = _width.x/extrusion_scale, dwdz = _width.y/extrusion_scale;
+    return std::max(w0, w0 + dwdz)/_tileUnitsPerPixel;
+}
+
+// texture skew (in pixels, on each side of the line) allowed at shared miter joins; shallow joins on thin
+//  lines share vertices (dash skew is invisible), wide lines get separate join pieces at bends
+static float maxSharedMiterTan(float _halfWidthPx) {
+    constexpr float maxSkewPx = 0.5f, minTan = 0.1f, maxTan = 1.f;
+    return _halfWidthPx > 0 ? glm::clamp(maxSkewPx/_halfWidthPx, minTan, maxTan) : maxTan;
+}
+
 template <class V>
 void PolylineStyleBuilder<V>::addMesh(const Line& _line, const Parameters& _params) {
 
@@ -498,9 +511,12 @@ void PolylineStyleBuilder<V>::addMesh(const Line& _line, const Parameters& _para
     m_builder.closedPolygon = _params.closedPolygon;
     // geometry is shared with outline unless rebuildStroke
     m_builder.maxWidth = maxExtrudeWidth(_params.fill.width, m_overzoom2);
+    float maxWidthPx = maxPixelWidth(_params.fill.width, m_tileUnitsPerPixel);
     if (_params.outlineOn && !rebuildStroke) {
         m_builder.maxWidth = std::max(m_builder.maxWidth, maxExtrudeWidth(_params.stroke.width, m_overzoom2));
+        maxWidthPx = std::max(maxWidthPx, maxPixelWidth(_params.stroke.width, m_tileUnitsPerPixel));
     }
+    m_builder.maxSharedMiterTan = maxSharedMiterTan(maxWidthPx);
 
     if (_params.lineOn) { buildLine(_line, _params.fill, m_meshData[0], _params.selectionColor); }
 
@@ -512,6 +528,7 @@ void PolylineStyleBuilder<V>::addMesh(const Line& _line, const Parameters& _para
         m_builder.join = _params.stroke.join;
         m_builder.miterLimit = _params.stroke.miterLimit;
         m_builder.maxWidth = maxExtrudeWidth(_params.stroke.width, m_overzoom2);
+        m_builder.maxSharedMiterTan = maxSharedMiterTan(maxPixelWidth(_params.stroke.width, m_tileUnitsPerPixel));
 
         buildLine(_line, _params.stroke, m_meshData[1], _params.selectionColor);
 
