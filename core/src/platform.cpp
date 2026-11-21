@@ -112,16 +112,21 @@ UrlRequestHandle Platform::startUrlRequest(Url _url, const HttpOptions& _options
     UrlRequestHandle handle = ++m_urlRequestCount;
 
     // Need to do this in advance in case startUrlRequest calls back synchronously.
-    UrlRequestEntry* entry = nullptr;
     {
         std::lock_guard<std::mutex> lock(m_callbackMutex);
-        auto it = m_urlCallbacks.emplace(handle, UrlRequestEntry{std::move(_callback), 0, false});
-        entry = &it.first->second;
+        m_urlCallbacks.emplace(handle, UrlRequestEntry{std::move(_callback), 0, false});
     }
 
-    // Start Platform specific url request
-    if (startUrlRequestImpl(_url, _options, handle, entry->id)) {
-        entry->cancelable = true;
+    // Start Platform specific url request; the request can complete (and onUrlResponse() erase the entry) on
+    //  another thread before this returns, so don't hold a pointer to the entry across the call
+    UrlRequestId id = 0;
+    if (startUrlRequestImpl(_url, _options, handle, id)) {
+        std::lock_guard<std::mutex> lock(m_callbackMutex);
+        auto it = m_urlCallbacks.find(handle);
+        if (it != m_urlCallbacks.end()) {
+            it->second.id = id;
+            it->second.cancelable = true;
+        }
     }
 
     return handle;
