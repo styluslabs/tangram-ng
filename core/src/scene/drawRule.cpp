@@ -153,8 +153,12 @@ bool DrawRuleMergeSet::match(const Feature& _feature, const SceneLayer& _layer, 
 
 bool DrawRuleMergeSet::evaluateRuleForContext(DrawRule& rule, StyleContext& context) {
 
+    // early out for static visible: false; skip if visible is a function or stops, since the param may then be
+    //  m_evaluated from a previous evaluation - markers reuse their DrawRule, so a function that once returned
+    //  false would hide the marker forever
     bool visible;
-    if (rule.get(StyleParamKey::visible, visible) && !visible) {
+    const StyleParam& visParam = rule.findParameter(StyleParamKey::visible);
+    if (visParam.function < 0 && !visParam.stops && rule.get(StyleParamKey::visible, visible) && !visible) {
         return false;
     }
 

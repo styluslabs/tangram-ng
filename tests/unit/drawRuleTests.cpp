@@ -2,6 +2,8 @@
 
 #include "scene/drawRule.h"
 #include "scene/sceneLayer.h"
+#include "scene/styleContext.h"
+#include "data/tileData.h"
 #include "log.h"
 
 #include <cstdio>
@@ -132,4 +134,25 @@ TEST_CASE("DrawRule correctly merges with another DrawRule", TAGS) {
     }
 }
 
+}
+
+TEST_CASE("Reused DrawRule re-evaluates visible function after it returned false", TAGS) {
+    // markers keep their DrawRule across builds; params then point to the previous evaluated values
+    StyleParam visParam(StyleParamKey::visible);
+    visParam.function = 0;
+    const DrawRuleData ruleData = { "marker", 0, { visParam } };
+    DrawRule rule(ruleData, "", 0);
+    DrawRuleMergeSet ruleSet;
+
+    Feature feature;
+    StyleContext ctx;
+    ctx.setFeature(feature);
+    REQUIRE(ctx.setFunctions({ R"(function() { return $zoom >= 15; })" }));
+
+    ctx.setTileID(TileID(0, 0, 16));
+    REQUIRE(ruleSet.evaluateRuleForContext(rule, ctx));
+    ctx.setTileID(TileID(0, 0, 14));
+    REQUIRE(!ruleSet.evaluateRuleForContext(rule, ctx));
+    ctx.setTileID(TileID(0, 0, 16));
+    REQUIRE(ruleSet.evaluateRuleForContext(rule, ctx));
 }

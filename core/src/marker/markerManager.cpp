@@ -307,10 +307,14 @@ MarkerManager::UpdateState MarkerManager::update(const View& _view, float _dt) {
             if (builtZoom < 0) { buildStyling(*marker); }
 
             // prevent continuous rendering if marker styling fails
-            if (buildMesh(*marker, m_zoom))
+            if (buildMesh(*marker, m_zoom)) {
                 rebuilt = true;
-            else
-                LOGE("Error building marker mesh.");
+            } else {
+                // hidden by draw rule (e.g. visible: function() { return $zoom >= 15; }) is not an error
+                bool visible = true;
+                if (marker->drawRule()) { marker->drawRule()->get(StyleParamKey::visible, visible); }
+                if (visible) { LOGE("Error building marker mesh."); }
+            }
         }
 
         marker->update(_dt, _view);
