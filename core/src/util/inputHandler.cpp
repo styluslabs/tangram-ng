@@ -186,7 +186,12 @@ void InputHandler::cancelFling() {
 }
 
 void InputHandler::setVelocity(float _zoom, glm::vec2 _translate) {
-    // setup deltas for momentum on gesture
+    // setup deltas for momentum on gesture; infinite velocity (e.g. from dt = 0 in caller's fling calculation)
+    //  would become NaN in update() (inf - inf)
+    if (!std::isfinite(_zoom) || !std::isfinite(_translate.x) || !std::isfinite(_translate.y)) {
+        _zoom = 0;
+        _translate = glm::vec2(0.f);
+    }
     m_velocityPan = _translate;
     m_velocityZoom = _zoom;
 }

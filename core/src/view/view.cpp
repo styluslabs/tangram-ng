@@ -207,6 +207,11 @@ void View::setConstrainToWorldBounds(bool constrainToWorldBounds) {
 }
 
 void View::setPosition(double _x, double _y) {
+    // reject invalid position (e.g. from invalid lat,lng) - NaN in View params makes every tile visible
+    if (!std::isfinite(_x) || !std::isfinite(_y)) {
+        LOGE("View::setPosition: ignoring invalid position %f, %f", _x, _y);
+        return;
+    }
     // Wrap horizontal position around the 180th meridian, which corresponds to +/- HALF_CIRCUMFERENCE meters.
     m_pos.x = _x - std::round(_x / MapProjection::EARTH_CIRCUMFERENCE_METERS) * MapProjection::EARTH_CIRCUMFERENCE_METERS;
     // Clamp vertical position to the span of the map, which is +/- HALF_CIRCUMFERENCE meters.
@@ -219,16 +224,23 @@ void View::setPosition(double _x, double _y) {
 }
 
 void View::setZoom(float _z, bool setBaseZoom) {
+    // reject invalid zoom (glm::clamp passes NaN through, which breaks all View params)
+    if (!std::isfinite(_z)) {
+        LOGE("View::setZoom: ignoring invalid zoom %f", _z);
+        return;
+    }
     // ensure zoom value is allowed
     _z = glm::clamp(_z, m_minZoom, m_maxZoom);
 
     if (!m_elevationManager) {  //||m_baseZoom == prevZoom)
         m_baseZoom = m_zoom = _z;
     } else if (setBaseZoom) {
-        m_zoom = -std::log2(std::exp2(-_z) - std::exp2(-m_baseZoom) + std::exp2(-m_zoom));
+        float z = -std::log2(std::exp2(-_z) - std::exp2(-m_baseZoom) + std::exp2(-m_zoom));
+        m_zoom = std::isfinite(z) ? z : _z;  // log2 of value <= 0 possible
         m_baseZoom = _z;
     } else {
-        m_baseZoom = -std::log2(std::exp2(-_z) - std::exp2(-m_zoom) + std::exp2(-m_baseZoom));
+        float z = -std::log2(std::exp2(-_z) - std::exp2(-m_zoom) + std::exp2(-m_baseZoom));
+        m_baseZoom = std::isfinite(z) ? z : _z;
         m_zoom = _z;
     }
 
@@ -240,6 +252,7 @@ void View::setZoom(float _z, bool setBaseZoom) {
 }
 
 void View::setYaw(float _rad) {
+    if (!std::isfinite(_rad)) { return; }
 
     m_yaw = glm::mod(_rad, (float)TWO_PI);
     m_dirtyMatrices = true;
@@ -248,6 +261,7 @@ void View::setYaw(float _rad) {
 }
 
 void View::setPitch(float _rad) {
+    if (!std::isfinite(_rad)) { return; }
 
     m_pitch = _rad;
     m_dirtyMatrices = true;
