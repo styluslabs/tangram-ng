@@ -54,13 +54,7 @@ endforeach()
 set(NEXTZEN_API_KEY $ENV{NEXTZEN_API_KEY})
 configure_file(${PROJECT_SOURCE_DIR}/platforms/ios/demo/Info.plist.in ${PROJECT_BINARY_DIR}/Info.plist)
 
-# Tell SQLiteCpp to not build its own copy of SQLite, we will use the system library instead.
-set(SQLITECPP_INTERNAL_SQLITE OFF CACHE BOOL "")
-if (IOS_SDK_VERSION VERSION_LESS 11.0)
-  set(SQLITE_USE_LEGACY_STRUCT ON CACHE BOOL "")
-endif()
-
-# Some 3rd-party dependencies (SQLiteCpp and Freetype) have CMake scripts that
+# Some 3rd-party dependencies (e.g. Freetype) have CMake scripts that
 # use find_package() to locate and link libraries that they depend on.
 # find_package() successfully sets paths for these library files, but the paths
 # are only valid for the *configured* sysroot. For iOS, this means that the 
@@ -72,7 +66,6 @@ endif()
 # current value. This lets us force dependencies to use linker flags instead of
 # paths to libraries.
 set(ZLIB_LIBRARY "-lz" CACHE STRING "Override zlib library location on iOS")
-set(SQLite3_LIBRARY "-lsqlite3" CACHE STRING "Override sqlite3 library location on iOS")
 
 # Headers must be absolute paths for the copy_if_different command on the
 # static library target, relative paths cause it to fail with an error.
@@ -216,7 +209,7 @@ if(NOT TANGRAM_USE_JSCORE)
   set(TANGRAM_STATIC_DEPENDENCIES "${TANGRAM_STATIC_DEPENDENCIES} $<TARGET_FILE:duktape>")
 endif()
 if(TANGRAM_MBTILES_DATASOURCE)
-  set(TANGRAM_STATIC_DEPENDENCIES "${TANGRAM_STATIC_DEPENDENCIES} $<TARGET_FILE:SQLiteCpp>")
+  set(TANGRAM_STATIC_DEPENDENCIES "${TANGRAM_STATIC_DEPENDENCIES} $<TARGET_FILE:sqlite3>")
 endif()
 
 set_target_properties(tangram-static PROPERTIES
