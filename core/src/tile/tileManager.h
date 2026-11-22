@@ -70,6 +70,11 @@ public:
      */
     void setCacheSize(size_t _cacheSize);
 
+    /* @_levels: keep ancestors (cover tiles) this many levels up of visible tiles, drawn only as proxies;
+     * loaded first for visible tiles w/o data or loaded ancestor, so view is covered quickly on zoom out
+     * (0 = off) */
+    void setCoverLevels(int _levels) { m_coverLevels = _levels > 0 ? _levels : 0; }
+
 protected:
 
     enum class ProxyID : uint8_t;
@@ -117,6 +122,7 @@ protected:
 
     std::unique_ptr<TileCache> m_tileCache;
     size_t m_maxCacheLimit = DEFAULT_CACHE_SIZE;
+    int m_coverLevels = 0;
 
     TileTaskQueue& m_workers;
 

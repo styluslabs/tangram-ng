@@ -36,6 +36,11 @@ struct TileManager::TileEntry {
     // is tile in TileSet.visibleTiles?
     bool m_visible = false;
 
+    // ancestor loading first to cover visible tile(s) w/o data (reset each update)
+    bool m_cover = false;
+    // cover tile of visible tile: kept (drawn only if needed as proxy) for zoom out (reset each update)
+    bool m_keep = false;
+
     bool isInProgress() {
         return bool(task) && !task->isCanceled();
     }
@@ -413,14 +418,37 @@ void TileManager::updateTileSet(TileSet& _tileSet, const ViewState& _view) {
                 // found visible tile (w/o tile) to proxy for?
                 if (it->second.isVisible()) { entry.m_proxyCounter++; break; }
             }
-        } else if (!entry.tile) {
+        }
+        bool covered = true;
+        if (entry.isVisible() && !entry.tile) {
             // visible tile w/o tile - look for parents which can be proxy
+            covered = false;
             for (auto id = tileId.getParent(zoomBias); id.s >= minCurS; id = id.getParent(zoomBias)) {
                 auto it = tiles.find(id);
                 if (it != tiles.end()) {
                     it->second.m_proxyCounter++;
-                    if (it->second.tile) { break; }
+                    if (it->second.tile) { covered = true; break; }
                 }
+            }
+        }
+        // cover tile: ancestor m_coverLevels up of visible tile; loaded before visible tiles if visible tile has
+        //  no loaded ancestor, so a few coarse tiles cover the view quickly (e.g. on fast zoom out); otherwise
+        //  loaded at low priority and kept (drawn only if needed as proxy) for the next zoom out
+        if (entry.isVisible() && m_coverLevels > 0) {
+            TileID id = tileId;
+            for (int ii = 0; ii < m_coverLevels && (id.z > 0 || id.s > id.z + zoomBias); ++ii) {
+                id = id.getParent(zoomBias);
+            }
+            if (id != tileId && id.s >= _tileSet.source->minDisplayZoom()) {
+                std::shared_ptr<Tile> noTile;
+                auto res = tiles.emplace(id, noTile);
+                if (res.second) {
+                    res.first->second.task = _tileSet.source->createTask(id);
+                    enqueueTask(_tileSet, id, _view);
+                }
+                if (!covered) { res.first->second.m_proxyCounter++; }
+                res.first->second.m_cover |= !covered;
+                res.first->second.m_keep = true;
             }
         }
     }
@@ -444,9 +472,11 @@ void TileManager::updateTileSet(TileSet& _tileSet, const ViewState& _view) {
              rasterDone, rasterLoading, entry.task && entry.task->isCanceled());
 #endif
 
-        bool canLoad = entry.isInProgress() && (tileId.z < maxProxyZ && tileId.z > minProxyZ);
-        if (entry.isVisible() || (entry.m_proxyCounter > 0 && (entry.tile || canLoad))) {
-            if (entry.tile) {
+        // keep cover tile while needed even if its task failed, so it isn't requested again every frame
+        bool canLoad = (entry.isInProgress() && tileId.z < maxProxyZ && tileId.z > minProxyZ) || entry.m_cover;
+        if (entry.isVisible() || entry.m_keep || (entry.m_proxyCounter > 0 && (entry.tile || canLoad))) {
+            // kept cover tile is drawn only if needed as proxy
+            if (entry.tile && (entry.isVisible() || entry.m_proxyCounter > 0)) {
                 entry.tile->setProxyDepth(entry.m_proxyCounter > 0 ? std::max(maxVisS - tileId.s, 1) : 0);
                 m_tiles.push_back(entry.tile);
                 // check to see if a replacement is now available for missing raster
@@ -485,16 +515,19 @@ void TileManager::updateTileSet(TileSet& _tileSet, const ViewState& _view) {
                         } while (id.z > 13 || (id.z > 0 && id.z + 2 >= tileId.z));
                     }
                 }
-            } else if (entry.isInProgress()) {
+            } else if (!entry.tile && entry.isInProgress()) {
                 auto& task = entry.task;
                 // Update tile distance to map center for load priority.
                 auto tileCenter = MapProjection::tileCenter(tileId);
                 double scaleDiv = exp2(tileId.z - _view.zoom);
                 if (scaleDiv < 1) { scaleDiv = 0.1/scaleDiv; } // prefer parent tiles
-                task->setPriority(glm::length2(tileCenter - _view.center) * scaleDiv);
-                task->setProxyState(entry.m_proxyCounter > 0);
+                // cover tile needed now: load before visible tiles
+                task->setPriority(entry.m_cover ? -1 : glm::length2(tileCenter - _view.center) * scaleDiv);
+                task->setProxyState(!entry.isVisible() && !entry.m_cover);
             }
             entry.m_proxyCounter = 0;  // reset for next update
+            entry.m_cover = false;
+            entry.m_keep = false;
             ++curTilesIt;
         } else {
             // Remove entry and move tile (if present) to cache
