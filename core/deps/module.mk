@@ -81,30 +81,34 @@ include $(ADD_MODULE)
 
 
 ## sqlite
+# used on all platforms, incl. iOS (system SQLite is not used); keep version and options in sync with
+#  sqlite3/CMakeLists.txt
 MODULE_BASE = $(MAKE_BASE)/sqlite3
 
 MODULE_SOURCES = sqlite3.c
 MODULE_INC_PUBLIC = .
-MODULE_DEFS_PRIVATE = SQLITE_ENABLE_FTS5
+# - FTS5 for offline search; URI filenames (e.g. for attaching databases read-only)
+# - OMIT_JSON: JSON SQL fns (built in since 3.38) not used, ~60 KB; OMIT_LOAD_EXTENSION: table of API fns for
+#  extensions references every API fn, preventing --gc-sections from removing unused ones, ~60 KB
+# - rest are recommended options from sqlite.org/compile.html#rcmd (note DEFAULT_MEMSTATUS=0 makes
+#  sqlite3_memory_used() etc. return 0); other OMIT options tested (UTF16, DESERIALIZE, TRACE, ...) saved ~15 KB
+MODULE_DEFS_PRIVATE = SQLITE_ENABLE_FTS5 SQLITE_OMIT_JSON SQLITE_OMIT_LOAD_EXTENSION SQLITE_OMIT_DEPRECATED \
+  SQLITE_OMIT_SHARED_CACHE SQLITE_OMIT_PROGRESS_CALLBACK SQLITE_OMIT_DECLTYPE SQLITE_DEFAULT_MEMSTATUS=0 \
+  SQLITE_LIKE_DOESNT_MATCH_BLOBS SQLITE_MAX_EXPR_DEPTH=0 SQLITE_USE_ALLOCA
 MODULE_DEFS_PUBLIC = SQLITE_USE_URI=1
+# optimize for size in release builds: ~30% smaller than -O2, <5% slower for our queries (linked size, x86-64:
+#  3.54.1 -O2 1423 KB, w/ above options and -Os 917 KB); OMIT options leave some unused static fns
+ifneq ($(windir),)
+MODULE_CFLAGS = $(if $(filter-out 0,$(DEBUG)),,/O1)
+else
+MODULE_CFLAGS = -Wno-unused-function $(if $(filter-out 0,$(DEBUG)),,-Os)
+endif
+
+# sqlite3.c/.h are downloaded (again when version changes)
+SQLITE_ZIP := sqlite-amalgamation-3540100
+$(call FETCH_FILES,$(MODULE_BASE),https://www.sqlite.org/2026/$(SQLITE_ZIP).zip,$(SQLITE_ZIP)/sqlite3.c $(SQLITE_ZIP)/sqlite3.h)
 
 include $(ADD_MODULE)
-
-# if only sqlite3.h is included here, first run of make will fail to build sqlite3.o
-SQLITE_BASE := $(MODULE_BASE)
-SQLITE_GEN := $(SQLITE_BASE)/sqlite3.h $(SQLITE_BASE)/sqlite3.c
-GENERATED += $(SQLITE_GEN)
-
-# only a single target should invoke download to prevent multiple downloads with parallel make
-$(SQLITE_BASE)/sqlite3.h: $(SQLITE_BASE)/sqlite3.c
-
-ifneq ($(windir),)
-$(SQLITE_BASE)/sqlite3.c:
-	cd $(SQLITE_BASE) && curl "https://www.sqlite.org/2020/sqlite-amalgamation-3320300.zip" -o sqlite.zip && tar -xf sqlite.zip && move sqlite-amalgamation-3320300\sqlite3.* .
-else
-$(SQLITE_BASE)/sqlite3.c:
-	cd $(SQLITE_BASE) && curl "https://www.sqlite.org/2020/sqlite-amalgamation-3320300.zip" -o sqlite.zip && unzip sqlite.zip && mv sqlite-amalgamation-3320300/sqlite3.* .
-endif
 
 ## gaml
 MODULE_BASE = $(MAKE_BASE)/gaml

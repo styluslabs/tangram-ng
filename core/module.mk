@@ -157,8 +157,9 @@ endif
 
 include $(ADD_MODULE)
 
-# existence only dependency since actual shader header dependencies are in .d files
-$(MODULE_OBJS): | $(SHADER_HDRS:%=$(MODULE_BASE)/%)
+# GENERATED: existence only dependency of objects (actual shader header dependencies are in .d files); removed
+#  by distclean
+GENERATED += $(SHADER_HDRS:%=$(MODULE_BASE)/%)
 
 $(OBJDIR)/$(MODULE_BASE)/src/text/fontContext.$(OBJEXT): INC_PRIVATE := $(MODULE_BASE)/../../$(STYLUSLABS_DEPS)/nanovgXC/src
 
