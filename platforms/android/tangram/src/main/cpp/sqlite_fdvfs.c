@@ -152,11 +152,11 @@ static int ndkFileRead(sqlite3_file *pFile, void *pBuf, int amt, sqlite3_int64 o
   if(file->fd < 0)
     return SQLITE_IOERR_READ;
 
-  lseek(file->fd, offset, SEEK_SET);
-  size_t got = read(file->fd, pBuf, amt);
+  // pread() doesn't use file offset, so safe if fd is shared by multiple connections (lseek + read is not)
+  ssize_t got = pread(file->fd, pBuf, amt, offset);
   if(got == amt)
     return SQLITE_OK;
-  if(got > 0) {
+  if(got >= 0) {  // SQLite requires unread part of buffer be zero-filled
     memset(&((char*) pBuf)[got], 0, amt - got);
     return SQLITE_IOERR_SHORT_READ;
   }
