@@ -119,11 +119,12 @@ public:
     virtual std::vector<FontSourceHandle> systemFontFallbacksHandle() const;
 
     size_t activeUrlRequests() const { return m_urlCallbacks.size(); }
-    void notifyStorage(int64_t dtot, int64_t doffl) const { if(onNotifyStorage) onNotifyStorage(dtot, doffl); }
+    // called when tiles are written to cache (e.g. so app can manage cache size)
+    void notifyStorage(int64_t bytes) const { if(onNotifyStorage) onNotifyStorage(bytes); }
 
     std::atomic_uint_fast64_t bytesDownloaded = {0};
     std::atomic_bool isOffline{false};
-    std::function<void(int64_t, int64_t)> onNotifyStorage;
+    std::function<void(int64_t)> onNotifyStorage;
     std::string defaultUserAgent = "Tangram";
 
     static char const* shutdown_message;
