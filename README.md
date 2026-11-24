@@ -1,9 +1,9 @@
 # Tangram NG #
 *Fork of [Tangram ES](https://github.com/tangrams/tangram-es) for [Ascend Maps](https://www.github.com/styluslabs/maps)*
 
-Cross-platform C++ library for rendering 2D and 3D maps, supporting vector (GeoJSON, TopoJSON, Mapbox Vector Tiles) and raster (PNG, JPEG, TIFF, and LERC) data.
+Cross-platform C++ library for rendering 2D and 3D maps, supporting vector (GeoJSON, TopoJSON, Mapbox Vector Tiles) and raster (PNG, JPEG, TIFF, and LERC) data.  Map style is defined by YAML scene files.  
 
-Map style is defined by YAML scene files - see Tangram ES documentation at https://tangrams.readthedocs.io
+Docs at [styluslabs.github.io/tangram-docs](https://styluslabs.github.io/tangram-docs/)
 
 <img alt="Screenshot" src="https://github.com/user-attachments/assets/206324b9-bec1-46ca-a9e6-9f7fc1ec6d00" width="810">
 
