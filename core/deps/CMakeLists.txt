@@ -40,6 +40,13 @@ target_include_directories(miniz
   ${CMAKE_CURRENT_SOURCE_DIR}/miniz)
 
 
+## pmtiles ##
+#############
+# Header-only library for PMTiles support
+add_library(pmtiles INTERFACE)
+target_include_directories(pmtiles INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/pmtiles)
+
+
 if(NOT TANGRAM_USE_FONTCONTEXT_STB)
 
 ## Harfbuzz - ICU-Common - Freetype2 ##
