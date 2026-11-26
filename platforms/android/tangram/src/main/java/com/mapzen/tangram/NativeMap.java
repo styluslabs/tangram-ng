@@ -58,6 +58,7 @@ class NativeMap {
     native synchronized void handlePinchGesture(float posX, float posY, float scale, float velocity);
     native synchronized void handleRotateGesture(float posX, float posY, float rotation);
     native synchronized void handleShoveGesture(float distance);
+    native synchronized void handleTouchEvent(int action, float x1, float y1, float x2, float y2);
     native synchronized void setPickRadius(float radius);
     native synchronized void pickFeature(float posX, float posY);
     native synchronized void pickLabel(float posX, float posY);
@@ -76,6 +77,13 @@ class NativeMap {
     native synchronized void markerRemoveAll();
     native synchronized void useCachedGlState(boolean use);
     native synchronized void setDefaultBackgroundColor(float r, float g, float b);
+
+    native synchronized void setDpi(float dpi);
+    native synchronized void setPanningMode(int mode);
+    native synchronized int getPanningMode();
+    
+    native synchronized void setMapClickListener(MapClickListener listener);
+    native synchronized void setMapInteractionListener(MapInteractionListener listener);
 
     native synchronized long addClientDataSource(String name, boolean generateCentroid);
     native synchronized void removeClientDataSource(long sourcePtr);

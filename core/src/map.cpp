@@ -25,6 +25,8 @@
 #include "util/elevationManager.h"
 #include "util/fastmap.h"
 #include "util/inputHandler.h"
+#include "util/touchHandler.h"
+#include "util/touchListener.h"
 #include "util/ease.h"
 #include "util/jobQueue.h"
 #include "view/flyTo.h"
@@ -34,6 +36,12 @@
 #include <cmath>
 
 namespace Tangram {
+
+using ScreenPos = Tangram::ScreenPos;
+using TouchAction = Tangram::TouchAction;
+using ClickType = Tangram::ClickType;
+using MapClickListener = Tangram::MapClickListener;
+using MapInteractionListener = Tangram::MapInteractionListener;
 
 struct CameraEase {
     struct {
@@ -59,6 +67,7 @@ public:
     explicit Impl(Platform& _platform) :
         platform(_platform),
         inputHandler(view),
+        touchHandler(std::make_shared<TouchHandler>(view)),
         scene(std::make_unique<Scene>(_platform)) {}
 
     void setPixelScale(float _pixelsPerPoint);
@@ -76,6 +85,7 @@ public:
 
     std::unique_ptr<AsyncWorker> asyncWorker = std::make_unique<AsyncWorker>("Map worker");
     InputHandler inputHandler;
+    std::shared_ptr<TouchHandler>  touchHandler;
 
     std::unique_ptr<Ease> ease;
 
@@ -106,6 +116,10 @@ static std::bitset<9> g_flags = 0;
 Map::Map(std::unique_ptr<Platform> _platform) : platform(std::move(_platform)) {
     LOGTOInit();
     impl = std::make_unique<Impl>(*platform);
+    
+    // Set the Map reference for the touch handler
+    impl->touchHandler->setMap(this);
+    impl->touchHandler->init();
 }
 
 Map::~Map() {
@@ -949,6 +963,72 @@ void Map::handleShoveGesture(float _distance) {
     cancelCameraAnimation();
     impl->inputHandler.handleShoveGesture(_distance);
     impl->platform.requestRender();
+}
+
+void Map::handleTouchEvent(int action, float x1, float y1, float x2, float y2) {
+    cancelCameraAnimation();
+    ScreenPos pos1(x1, y1);
+    ScreenPos pos2(x2, y2);
+    impl->touchHandler->onTouchEvent(static_cast<TouchAction>(action), pos1, pos2);
+    impl->platform.requestRender();
+}
+
+void Map::setMapClickListener(std::shared_ptr<MapClickListener> listener) {
+    impl->touchHandler->setMapClickListener(listener);
+}
+
+void Map::setMapInteractionListener(std::shared_ptr<MapInteractionListener> listener) {
+    impl->touchHandler->setMapInteractionListener(listener);
+}
+
+void Map::setTouchGestureDpi(float dpi) {
+    impl->touchHandler->setDpi(dpi);
+}
+
+float Map::getTouchGestureDpi() const {
+    return impl->touchHandler->getDpi();
+}
+
+void Map::setPanningMode(int mode) {
+    PanningMode panningMode = PanningMode::FREE;
+    if (mode == 1) {
+        panningMode = PanningMode::STICKY;
+    } else if (mode == 2) {
+        panningMode = PanningMode::STICKY_FINAL;
+    }
+    impl->touchHandler->setPanningMode(panningMode);
+}
+
+int Map::getPanningMode() const {
+    return static_cast<int>(impl->touchHandler->getPanningMode());
+}
+
+void Map::setGesturesEnabled(bool zoom, bool pan, bool doubleTap, bool doubleTapDrag, bool tilt, bool rotate) {
+    impl->touchHandler->setGesturesEnabled(zoom, pan, doubleTap, doubleTapDrag, tilt, rotate);
+}
+
+void Map::setZoomEnabled(bool enabled) {
+    impl->touchHandler->setZoomEnabled(enabled);
+}
+
+void Map::setPanEnabled(bool enabled) {
+    impl->touchHandler->setPanEnabled(enabled);
+}
+
+void Map::setDoubleTapEnabled(bool enabled) {
+    impl->touchHandler->setDoubleTapEnabled(enabled);
+}
+
+void Map::setDoubleTapDragEnabled(bool enabled) {
+    impl->touchHandler->setDoubleTapDragEnabled(enabled);
+}
+
+void Map::setTiltEnabled(bool enabled) {
+    impl->touchHandler->setTiltEnabled(enabled);
+}
+
+void Map::setRotateEnabled(bool enabled) {
+    impl->touchHandler->setRotateEnabled(enabled);
 }
 
 void Map::setupGL() {

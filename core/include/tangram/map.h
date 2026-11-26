@@ -17,6 +17,8 @@ class TileSource;
 class View;
 class Scene;
 class SceneOptions;
+class MapClickListener;
+class MapInteractionListener;
 
 enum LabelType {
     icon,
@@ -441,6 +443,40 @@ public:
 
     // Respond to a two-finger shove with the given distance in screen coordinates
     void handleShoveGesture(float _distance);
+
+    // Respond to a unified touch event with action and pointer coordinates
+    // Action values: 0=POINTER_1_DOWN, 1=POINTER_2_DOWN, 2=MOVE, 3=CANCEL, 4=POINTER_1_UP, 5=POINTER_2_UP
+    // Coordinates x2/y2 should be -1 when not applicable (single pointer events)
+    void handleTouchEvent(int action, float x1, float y1, float x2, float y2);
+    
+    // Set listener for map click events (single tap)
+    // Listener can return true to prevent default centering behavior
+    void setMapClickListener(std::shared_ptr<MapClickListener> listener);
+    
+    // Set listener for map interaction events (panning, zooming, rotating, tilting)
+    // Listener can return true to prevent all default interaction behavior
+    void setMapInteractionListener(std::shared_ptr<MapInteractionListener> listener);
+    
+    // Set DPI for touch gesture calculations (affects gesture detection thresholds)
+    // Should be set based on platform's screen DPI for best results
+    void setTouchGestureDpi(float dpi);
+    float getTouchGestureDpi() const;
+    
+    // Set panning mode for dual pointer gestures
+    // FREE (0): Allows simultaneous rotation and scaling (default)
+    // STICKY (1): Separates rotate and scale gestures, allows switching during touch
+    // STICKY_FINAL (2): Locks to first detected gesture until fingers lift
+    void setPanningMode(int mode); // 0 = FREE, 1 = STICKY, 2 = STICKY_FINAL
+    int getPanningMode() const;
+    
+    // Enable or disable specific gestures for the new touch handling system
+    void setGesturesEnabled(bool zoom, bool pan, bool doubleTap, bool doubleTapDrag, bool tilt, bool rotate);
+    void setZoomEnabled(bool enabled);
+    void setPanEnabled(bool enabled);
+    void setDoubleTapEnabled(bool enabled);
+    void setDoubleTapDragEnabled(bool enabled);
+    void setTiltEnabled(bool enabled);
+    void setRotateEnabled(bool enabled);
 
     // Set whether the OpenGL state will be cached between subsequent frames; this improves rendering
     // efficiency, but can cause errors if your application code makes OpenGL calls (false by default)

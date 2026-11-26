@@ -15,6 +15,7 @@
 #include "data/tileSource.h"
 #include "tile/tileID.h"
 #include "tile/tileTask.h"
+#include "util/touchListener.h"
 #include "util/types.h"
 #include "util/url.h"
 #include "util/variant.h"
